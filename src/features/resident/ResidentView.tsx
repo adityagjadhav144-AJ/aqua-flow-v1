@@ -10,6 +10,7 @@ import { PriceBreakdown } from '../../components/common/PriceBreakdown';
 import { ReceiptModal } from '../../components/common/ReceiptModal';
 import { AquaBotModal } from '../../components/common/AquaBotModal';
 import { RealtimeTankerTrackerModal } from '../../components/common/RealtimeTankerTrackerModal';
+import { UpiQrPaymentCard } from '../../components/common/UpiQrPaymentCard';
 import { Booking, Pool, ScheduleEvent, CrowdReport, Complaint } from '../../types';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateWhatsAppShareLink } from '../../services/pooling';
@@ -46,6 +47,8 @@ import {
   Truck,
   HelpCircle,
   ExternalLink,
+  QrCode,
+  Smartphone,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -74,6 +77,8 @@ export const ResidentView: React.FC = () => {
   const [selectedVendorIdx, setSelectedVendorIdx] = useState<number>(0);
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [bookingConfirmedObj, setBookingConfirmedObj] = useState<Booking | null>(null);
+  const [payMode, setPayMode] = useState<'upi_qr' | 'upi_vpa' | 'wallet'>('upi_qr');
+  const [vpaInput, setVpaInput] = useState('neha@okaxis');
 
   // Pool Create State
   const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
@@ -1043,35 +1048,117 @@ export const ResidentView: React.FC = () => {
                     <label className="text-xs font-black uppercase text-slate-700 tracking-wider">
                       Select Payment Mode
                     </label>
-                    <div className="p-4 rounded-2xl border border-cyan-600 bg-cyan-50/50 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <CreditCard size={20} className="text-cyan-700" />
-                        <div>
-                          <div className="text-sm font-bold text-slate-900">Simulated UPI Fast-Pay</div>
-                          <div className="text-xs text-slate-500">Auto-approved instant mock transaction</div>
-                        </div>
-                      </div>
-                      <CheckCircle2 size={20} className="text-cyan-700" />
+
+                    {/* Payment Mode Selector */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPayMode('upi_qr')}
+                        className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
+                          payMode === 'upi_qr'
+                            ? 'border-cyan-600 bg-cyan-50 text-cyan-950 font-black ring-2 ring-cyan-200'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold'
+                        }`}
+                      >
+                        <QrCode size={18} className={payMode === 'upi_qr' ? 'text-cyan-700' : 'text-slate-400'} />
+                        <span className="text-xs">Dynamic UPI QR</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPayMode('upi_vpa')}
+                        className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
+                          payMode === 'upi_vpa'
+                            ? 'border-cyan-600 bg-cyan-50 text-cyan-950 font-black ring-2 ring-cyan-200'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold'
+                        }`}
+                      >
+                        <Smartphone size={18} className={payMode === 'upi_vpa' ? 'text-cyan-700' : 'text-slate-400'} />
+                        <span className="text-xs">UPI ID / VPA</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPayMode('wallet')}
+                        className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center gap-1.5 ${
+                          payMode === 'wallet'
+                            ? 'border-cyan-600 bg-cyan-50 text-cyan-950 font-black ring-2 ring-cyan-200'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold'
+                        }`}
+                      >
+                        <Wallet size={18} className={payMode === 'wallet' ? 'text-cyan-700' : 'text-slate-400'} />
+                        <span className="text-xs">Citizen Wallet</span>
+                      </button>
                     </div>
+
+                    {/* Mode 1: Dynamic UPI QR */}
+                    {payMode === 'upi_qr' && (
+                      <div className="pt-2">
+                        <UpiQrPaymentCard
+                          amountPaise={bookQuote.price.total}
+                          volumeL={bookVolume}
+                          purpose={bookPurpose}
+                          onPaySuccess={handleConfirmBooking}
+                          isSubmitting={isBookingSubmitting}
+                        />
+                      </div>
+                    )}
+
+                    {/* Mode 2: UPI ID (VPA) input */}
+                    {payMode === 'upi_vpa' && (
+                      <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
+                        <label className="text-xs font-bold text-slate-700">Enter your UPI ID / VPA</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={vpaInput}
+                            onChange={(e) => setVpaInput(e.target.value)}
+                            placeholder="username@okaxis / gpay"
+                            className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono focus:outline-cyan-600"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleConfirmBooking}
+                            disabled={isBookingSubmitting || !vpaInput.trim()}
+                            className="px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                          >
+                            Verify & Pay
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-slate-500">
+                          A payment collect request of {formatINR(bookQuote.price.total)} will be sent to your UPI app.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Mode 3: Citizen Wallet */}
+                    {payMode === 'wallet' && (
+                      <div className="p-4 rounded-2xl border border-slate-200 bg-white space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-600 font-medium">Available Balance:</span>
+                          <span className="text-sm font-black text-slate-900">{formatINR(currentUser.walletPaise)}</span>
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Funds will be held in AquaFlow Escrow until digital PoD verification.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleConfirmBooking}
+                          disabled={isBookingSubmitting}
+                          className="w-full py-3 bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-2xl text-xs font-bold shadow-md cursor-pointer disabled:opacity-50"
+                        >
+                          Deduct {formatINR(bookQuote.price.total)} from Wallet
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex gap-3 pt-2">
                     <button
                       onClick={() => setBookStep(3)}
                       className="py-3 px-5 border border-slate-200 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer"
                     >
                       Back
-                    </button>
-                    <button
-                      onClick={handleConfirmBooking}
-                      disabled={isBookingSubmitting}
-                      className="flex-1 py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:brightness-105 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-md cursor-pointer disabled:opacity-50"
-                    >
-                      {isBookingSubmitting ? (
-                        <span>Locking Funds in Escrow...</span>
-                      ) : (
-                        <span>Pay {formatINR(bookQuote.price.total)} & Dispatch Tanker</span>
-                      )}
                     </button>
                   </div>
                 </div>
@@ -1119,10 +1206,26 @@ export const ResidentView: React.FC = () => {
               )}
             </div>
 
-            {/* Right 5 Columns: Sticky Price Breakdown */}
-            <div className="lg:col-span-5 sticky top-24">
+            {/* Right 5 Columns: Sticky Order Summary & Price Breakdown with Pay via UPI/QR */}
+            <div className="lg:col-span-5 sticky top-24 space-y-4">
               {bookQuote ? (
-                <PriceBreakdown price={bookQuote.price} volumeL={bookVolume} purpose={bookPurpose} />
+                <>
+                  <PriceBreakdown
+                    price={bookQuote.price}
+                    volumeL={bookVolume}
+                    purpose={bookPurpose}
+                    onPayViaUpi={() => setBookStep(4)}
+                  />
+
+                  {/* Feature: Pay via UPI/QR within ResidentView Order Summary */}
+                  <UpiQrPaymentCard
+                    amountPaise={bookQuote.price.total}
+                    volumeL={bookVolume}
+                    purpose={bookPurpose}
+                    onPaySuccess={handleConfirmBooking}
+                    isSubmitting={isBookingSubmitting}
+                  />
+                </>
               ) : (
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 text-center text-xs text-slate-400">
                   Calculating Fair-Price Cap quote...

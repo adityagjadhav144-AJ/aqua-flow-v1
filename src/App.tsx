@@ -14,9 +14,16 @@ import { VendorView } from './features/vendor/VendorView';
 import { MunicipalView } from './features/municipal/MunicipalView';
 import { OpsView } from './features/ops/OpsView';
 
+import { AuthPortal } from './features/auth/AuthPortal';
+
 export default function App() {
-  const { currentRole } = useAppStore();
+  const { currentRole, isAuthenticated } = useAppStore();
   const [isDemoPanelOpen, setIsDemoPanelOpen] = useState(false);
+
+  // Strict Login & Registration Wall
+  if (!isAuthenticated) {
+    return <AuthPortal />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F4FAFB] font-sans antialiased text-slate-900">

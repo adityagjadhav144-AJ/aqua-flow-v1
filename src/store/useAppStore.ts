@@ -5,6 +5,7 @@ import { translations } from '../i18n/translations';
 import { simulationEngine } from '../services/simulation';
 
 interface AppState {
+  isAuthenticated: boolean;
   currentRole: Role;
   currentUser: User;
   currentLanguage: Language;
@@ -17,6 +18,9 @@ interface AppState {
   selectedBookingId?: string;
 
   // Actions
+  login: (userOrId: User | string) => boolean;
+  registerUser: (newUser: User) => void;
+  logout: () => void;
   setRole: (role: Role) => void;
   setLanguage: (lang: Language) => void;
   setSeason: (season: 'normal' | 'summer') => void;
@@ -33,6 +37,7 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
+  isAuthenticated: false, // Strict login wall on load
   currentRole: 'resident',
   currentUser: db.getData().users[0],
   currentLanguage: 'en',
@@ -43,6 +48,57 @@ export const useAppStore = create<AppState>((set, get) => ({
   isAquaBotOpen: false,
   isNotifCenterOpen: false,
   selectedBookingId: 'BK-2026-9041',
+
+  login: (userOrId: User | string) => {
+    let targetUser: User | undefined;
+    if (typeof userOrId === 'string') {
+      const users = db.getData().users;
+      const cleanQuery = userOrId.trim().toLowerCase();
+      targetUser = users.find(
+        (u) =>
+          u.id === userOrId ||
+          (u.email && u.email.toLowerCase() === cleanQuery) ||
+          (u.phone && u.phone.replace(/\s+/g, '') === cleanQuery.replace(/\s+/g, ''))
+      );
+    } else {
+      targetUser = userOrId;
+    }
+
+    if (!targetUser) return false;
+
+    if (targetUser.role === 'driver') {
+      simulationEngine.setAutopilot(false);
+    } else {
+      simulationEngine.setAutopilot(true);
+    }
+
+    set({
+      isAuthenticated: true,
+      currentUser: targetUser,
+      currentRole: targetUser.role,
+      currentLanguage: targetUser.language || get().currentLanguage,
+    });
+    return true;
+  },
+
+  registerUser: (newUser: User) => {
+    db.addUser(newUser);
+    if (newUser.role === 'driver') {
+      simulationEngine.setAutopilot(false);
+    } else {
+      simulationEngine.setAutopilot(true);
+    }
+    set({
+      isAuthenticated: true,
+      currentUser: newUser,
+      currentRole: newUser.role,
+      currentLanguage: newUser.language || get().currentLanguage,
+    });
+  },
+
+  logout: () => {
+    set({ isAuthenticated: false });
+  },
 
   setRole: (role: Role) => {
     const data = db.getData();

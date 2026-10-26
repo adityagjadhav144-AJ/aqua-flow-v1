@@ -2,11 +2,25 @@ export type Role = 'resident' | 'society' | 'driver' | 'vendor' | 'municipal' | 
 
 export type Language = 'en' | 'mr' | 'hi';
 
+export interface UserVerification {
+  isVerified: boolean;
+  verificationBadgeId: string;
+  verifiedAt: string;
+  statutoryIdType: string;
+  statutoryIdValue: string;
+  phoneOtpVerified: boolean;
+  roleBadgeTitle: string;
+  officialOrg?: string;
+  jurisdictionZone?: string;
+}
+
 export interface User {
   id: string;
   role: Role;
   name: string;
   phone: string;
+  email?: string;
+  password?: string;
   language: Language;
   zoneId: string;
   addresses: Address[];
@@ -18,6 +32,17 @@ export interface User {
   };
   societyId?: string;
   vendorId?: string;
+  verification?: UserVerification;
+  // Role specific metadata
+  vehicleNo?: string;
+  commercialDl?: string;
+  pmcEmployeeId?: string;
+  designation?: string;
+  societyRegNo?: string;
+  flatsCount?: number;
+  sumpCapacityL?: number;
+  vendorPermitNo?: string;
+  fleetSize?: number;
 }
 
 export interface Address {

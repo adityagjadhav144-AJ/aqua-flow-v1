@@ -10,6 +10,8 @@ import {
   UserCheck,
   WifiOff,
   ChevronDown,
+  BadgeCheck,
+  LogOut,
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -19,6 +21,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
   const {
     currentRole,
+    currentUser,
     setRole,
     currentLanguage,
     setLanguage,
@@ -71,43 +74,88 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
           </div>
         </div>
 
-        {/* Central Role Selector */}
+        {/* Authenticated User Identity Capsule & Profile Dropdown */}
         <div className="relative">
           <button
             onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 transition-colors border border-slate-200/80 cursor-pointer"
-            title="Switch demo persona"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 transition-colors border border-slate-200/80 cursor-pointer shadow-2xs"
+            title="User Profile & Roles"
           >
-            <UserCheck size={14} className="text-cyan-600" />
-            <span className="hidden sm:inline text-slate-500 font-normal">Role:</span>
-            <span className="capitalize font-medium">
-              {rolesList.find((r) => r.id === currentRole)?.label.split(' ')[0]}
-            </span>
+            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-500 text-white flex items-center justify-center text-[10px] font-bold">
+              {currentUser?.name ? currentUser.name.charAt(0) : 'U'}
+            </div>
+            <div className="flex items-center gap-1.5 text-left">
+              <span className="font-semibold text-slate-900 truncate max-w-[120px] sm:max-w-[150px]">
+                {currentUser?.name || 'Authorized User'}
+              </span>
+              <span className="hidden md:inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-800">
+                <BadgeCheck size={11} className="text-emerald-700" />
+                <span>PMC Verified</span>
+              </span>
+            </div>
             <ChevronDown size={13} className="text-slate-400" />
           </button>
 
           {roleDropdownOpen && (
-            <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 p-2 z-50 animate-in fade-in zoom-in-95">
-              <div className="px-2.5 py-1.5 text-[10px] uppercase tracking-wider font-bold text-slate-400">
-                Select Demo Role Experience
+            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95">
+              {/* Profile Card Header */}
+              <div className="pb-3 border-b border-slate-100 mb-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-900">{currentUser?.name}</span>
+                  <span className="text-[10px] font-mono font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+                    {currentUser?.verification?.verificationBadgeId || 'PMC-VERIFIED'}
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5 flex items-center justify-between">
+                  <span>{currentUser?.phone}</span>
+                  <span className="capitalize text-slate-600 font-medium">Role: {currentRole}</span>
+                </div>
+                {currentUser?.verification?.roleBadgeTitle && (
+                  <div className="mt-1 text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                    <BadgeCheck size={12} />
+                    <span className="truncate">{currentUser.verification.roleBadgeTitle}</span>
+                  </div>
+                )}
               </div>
-              {rolesList.map((r) => (
+
+              {/* Fast Persona Switch for Evaluators */}
+              <div className="px-1 py-1 text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                Switch Operational Persona
+              </div>
+              <div className="space-y-1 mb-2 max-h-48 overflow-y-auto">
+                {rolesList.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      setRole(r.id);
+                      setRoleDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-medium text-left transition-colors cursor-pointer ${
+                      currentRole === r.id
+                        ? 'bg-sky-50 text-sky-900 font-semibold border border-sky-200'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="text-sm">{r.icon}</span>
+                    <span className="truncate">{r.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Sign Out CTA */}
+              <div className="pt-2 border-t border-slate-100">
                 <button
-                  key={r.id}
+                  type="button"
                   onClick={() => {
-                    setRole(r.id);
                     setRoleDropdownOpen(false);
+                    useAppStore.getState().logout();
                   }}
-                  className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs font-medium text-left transition-colors cursor-pointer ${
-                    currentRole === r.id
-                      ? 'bg-cyan-50 text-cyan-900 font-semibold border border-cyan-200'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer border border-rose-200"
                 >
-                  <span className="text-base">{r.icon}</span>
-                  <span>{r.label}</span>
+                  <LogOut size={14} />
+                  <span>{t('sign_out')}</span>
                 </button>
-              ))}
+              </div>
             </div>
           )}
         </div>

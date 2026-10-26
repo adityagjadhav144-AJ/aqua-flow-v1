@@ -119,6 +119,19 @@ class MockDatabase {
     return this.data;
   }
 
+  public addUser(user: User): User {
+    this.update((d) => {
+      // Remove any existing user with same id or phone
+      const existingIdx = d.users.findIndex((u) => u.id === user.id || (user.phone && u.phone === user.phone));
+      if (existingIdx >= 0) {
+        d.users[existingIdx] = user;
+      } else {
+        d.users.push(user);
+      }
+    });
+    return user;
+  }
+
   public update(updater: (draft: DatabaseSchema) => void): DatabaseSchema {
     updater(this.data);
     this.saveToStorage();
