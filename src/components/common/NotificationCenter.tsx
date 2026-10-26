@@ -37,10 +37,10 @@ export const NotificationCenter: React.FC = () => {
         </div>
 
         {/* Tab Switcher */}
-        <div className="px-4 pt-3 pb-2 flex gap-2 border-b border-slate-100">
+        <div className="px-4 pt-3 pb-2 flex gap-2 border-b border-slate-100 overflow-x-auto scrollbar-none flex-nowrap">
           <button
             onClick={() => setTab('all')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer shrink-0 ${
               tab === 'all' ? 'bg-cyan-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
             }`}
           >
@@ -48,7 +48,7 @@ export const NotificationCenter: React.FC = () => {
           </button>
           <button
             onClick={() => setTab('whatsapp')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 cursor-pointer shrink-0 ${
               tab === 'whatsapp' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
             }`}
           >
@@ -57,7 +57,7 @@ export const NotificationCenter: React.FC = () => {
           </button>
           <button
             onClick={() => setTab('push')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer shrink-0 ${
               tab === 'push' ? 'bg-slate-800 text-white shadow-xs' : 'bg-slate-100 text-slate-600'
             }`}
           >

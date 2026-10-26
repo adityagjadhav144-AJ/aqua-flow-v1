@@ -309,7 +309,7 @@ export const ResidentView: React.FC = () => {
       </div>
 
       {/* Website Navigation Tabs Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
+      <div className="flex items-center gap-1.5 overflow-x-auto bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200 scrollbar-none">
         {[
           { id: 'home', label: currentLanguage === 'mr' ? 'मुख्यपृष्ठ व थेट टँकर रडार' : 'Home & Live Tanker Radar', icon: Home },
           { id: 'book', label: t('book_tanker'), icon: Droplets },
@@ -323,7 +323,7 @@ export const ResidentView: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                 isActive
                   ? 'bg-white text-cyan-950 shadow-sm border border-slate-200'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
@@ -391,7 +391,7 @@ export const ResidentView: React.FC = () => {
                   <LeafletMap
                     center={[activeBooking.currentLat || 18.535, activeBooking.currentLng || 73.805]}
                     zoom={13}
-                    className="h-80 sm:h-96 w-full"
+                    className="h-60 sm:h-80 lg:h-96 w-full"
                     markers={[
                       {
                         id: 'truck',
@@ -528,7 +528,7 @@ export const ResidentView: React.FC = () => {
                   <LeafletMap
                     center={[18.535, 73.805]}
                     zoom={12}
-                    className="h-80 sm:h-96 w-full"
+                    className="h-60 sm:h-80 lg:h-96 w-full"
                     markers={[
                       {
                         id: 'truck-1',
@@ -575,12 +575,12 @@ export const ResidentView: React.FC = () => {
                     ]}
                   />
 
-                  <div className="absolute bottom-3 left-3 right-3 z-10 bg-white/95 backdrop-blur-md p-3 rounded-2xl shadow-lg border border-slate-200/80 flex items-center justify-between gap-2">
+                  <div className="absolute bottom-2 sm:bottom-3 left-2 sm:left-3 right-2 sm:right-3 z-10 bg-white/95 backdrop-blur-md p-2.5 sm:p-3 rounded-2xl shadow-lg border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <div className="text-xs">
-                      <span className="font-extrabold text-slate-900 block">
+                      <span className="font-extrabold text-slate-900 block text-xs sm:text-sm">
                         {currentLanguage === 'mr' ? 'तुमच्या पत्त्यावर टँकर हवा आहे?' : 'Need a water tanker at your address?'}
                       </span>
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[10px] sm:text-[11px] text-slate-500">
                         {currentLanguage === 'mr' ? 'वाजवी दर मर्यादा आणि थेट ट्रॅकिंगसह त्वरित बुक करा' : 'Instant auto-match with Fair-Price Cap protection'}
                       </span>
                     </div>
@@ -589,7 +589,7 @@ export const ResidentView: React.FC = () => {
                         setActiveTab('book');
                         setBookStep(1);
                       }}
-                      className="py-2 px-3.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1 shrink-0"
+                      className="py-1.5 sm:py-2 px-3 sm:px-3.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1 shrink-0 w-full sm:w-auto justify-center"
                     >
                       <span>{t('book_tanker')}</span>
                       <ArrowRight size={13} />
@@ -1308,7 +1308,7 @@ export const ResidentView: React.FC = () => {
               <LeafletMap
                 center={[18.559, 73.787]}
                 zoom={13}
-                className="h-80 w-full rounded-2xl overflow-hidden"
+                className="h-60 sm:h-72 lg:h-80 w-full rounded-2xl overflow-hidden"
                 markers={[
                   { id: 'm1', lat: 18.559, lng: 73.787, title: 'Baner Ward Center', type: 'source' },
                   { id: 'm2', lat: 18.498, lng: 73.847, title: 'PMC Parvati Pump Station', type: 'source' },

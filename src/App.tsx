@@ -26,12 +26,12 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F4FAFB] font-sans antialiased text-slate-900">
+    <div className="min-h-screen flex flex-col bg-[#F4FAFB] font-sans antialiased text-slate-900 w-full max-w-full overflow-x-hidden">
       {/* Universal Top Header */}
       <Header onOpenDemoPanel={() => setIsDemoPanelOpen(true)} />
 
       {/* Main Role-Specific Viewport */}
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col w-full max-w-full overflow-x-hidden">
         {currentRole === 'resident' && (
           <div className="flex-1 w-full py-4">
             <ResidentView />

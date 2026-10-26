@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { Role, Language } from '../../types';
 import {
-  Droplets,
   Bell,
   Sparkles,
   Sliders,
@@ -53,55 +52,59 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-4 h-16 flex items-center justify-between gap-1.5 sm:gap-3">
         {/* Brand & Logo */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-cyan-500/20">
-            <Droplets size={22} className="stroke-[2.5]" />
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-white border border-cyan-200/90 p-0.5 flex items-center justify-center shadow-md shadow-cyan-500/15 shrink-0">
+            <img
+              src="/assets/aistudio/image_a469dbfe.png"
+              alt="AquaFlow Icon"
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-slate-900 tracking-tight text-lg">
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <span className="font-bold text-slate-900 tracking-tight text-base sm:text-lg">
                 AquaFlow
               </span>
-              <span className="text-[11px] font-bold tracking-wide uppercase px-1.5 py-0.5 rounded-md bg-cyan-100 text-cyan-800">
+              <span className="text-[10px] sm:text-[11px] font-bold tracking-wide uppercase px-1 sm:px-1.5 py-0.2 rounded-md bg-cyan-100 text-cyan-800">
                 Pune
               </span>
             </div>
-            <p className="text-[10px] text-slate-500 font-medium hidden sm:block">
+            <p className="text-[10px] text-slate-500 font-medium hidden md:block">
               Smart Water Logistics & Fair-Cap
             </p>
           </div>
         </div>
 
         {/* Authenticated User Identity Capsule & Profile Dropdown */}
-        <div className="relative">
+        <div className="relative shrink-0">
           <button
             onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 transition-colors border border-slate-200/80 cursor-pointer shadow-2xs"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-800 transition-colors border border-slate-200/80 cursor-pointer shadow-2xs"
             title="User Profile & Roles"
           >
-            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-500 text-white flex items-center justify-center text-[10px] font-bold">
+            <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-sky-600 to-cyan-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
               {currentUser?.name ? currentUser.name.charAt(0) : 'U'}
             </div>
-            <div className="flex items-center gap-1.5 text-left">
-              <span className="font-semibold text-slate-900 truncate max-w-[120px] sm:max-w-[150px]">
-                {currentUser?.name || 'Authorized User'}
+            <div className="flex items-center gap-1 sm:gap-1.5 text-left">
+              <span className="font-semibold text-slate-900 truncate max-w-[65px] sm:max-w-[120px] md:max-w-[150px]">
+                {currentUser?.name ? currentUser.name.split(' ')[0] : 'User'}
               </span>
               <span className="hidden md:inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded font-bold bg-emerald-100 text-emerald-800">
                 <BadgeCheck size={11} className="text-emerald-700" />
                 <span>PMC Verified</span>
               </span>
             </div>
-            <ChevronDown size={13} className="text-slate-400" />
+            <ChevronDown size={12} className="text-slate-400 shrink-0" />
           </button>
 
           {roleDropdownOpen && (
-            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95">
+            <div className="absolute top-full mt-2 right-0 w-72 max-w-[calc(100vw-1.5rem)] bg-white rounded-2xl shadow-2xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95">
               {/* Profile Card Header */}
               <div className="pb-3 border-b border-slate-100 mb-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900">{currentUser?.name}</span>
+                  <span className="text-xs font-bold text-slate-900 truncate max-w-[150px]">{currentUser?.name}</span>
                   <span className="text-[10px] font-mono font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
                     {currentUser?.verification?.verificationBadgeId || 'PMC-VERIFIED'}
                   </span>
@@ -161,14 +164,24 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
         </div>
 
         {/* Actions Right */}
-        <div className="flex items-center gap-2">
-          {/* Dedicated English / Marathi Language Switcher for Pune Accessibility */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Mobile Single Tap Language Switcher */}
+          <button
+            type="button"
+            onClick={() => setLanguage(currentLanguage === 'en' ? 'mr' : 'en')}
+            className="md:hidden px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold rounded-lg border border-slate-200 cursor-pointer shadow-2xs"
+            title="भाषा बदला / Toggle Language"
+          >
+            {currentLanguage === 'mr' ? 'मराठी' : 'EN'}
+          </button>
+
+          {/* Desktop Full 3-Language Selector */}
           <div
-            className="flex items-center bg-slate-100 hover:bg-slate-200/70 p-1 rounded-xl border border-slate-200 shadow-2xs transition-colors"
+            className="hidden md:flex items-center bg-slate-100 hover:bg-slate-200/70 p-1 rounded-xl border border-slate-200 shadow-2xs transition-colors"
             role="group"
             aria-label="Language selection: English or Marathi (पुणे)"
           >
-            <div className="flex items-center pl-1.5 pr-1 text-slate-500 hidden md:flex" title="Language / भाषा">
+            <div className="flex items-center pl-1.5 pr-1 text-slate-500" title="Language / भाषा">
               <Globe size={14} className="text-cyan-600" />
             </div>
             
@@ -204,7 +217,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
             <button
               type="button"
               onClick={() => setLanguage('hi')}
-              className={`px-2 py-1 text-[11px] font-medium rounded-lg transition-all cursor-pointer hidden sm:block ${
+              className={`px-2 py-1 text-[11px] font-medium rounded-lg transition-all cursor-pointer ${
                 currentLanguage === 'hi'
                   ? 'bg-white text-cyan-900 shadow-xs font-bold'
                   : 'text-slate-400 hover:text-slate-700'
@@ -216,26 +229,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
             </button>
           </div>
 
-          {/* AquaBot Assistant Toggle (Resident only or quick access) */}
+          {/* AquaBot Assistant Toggle */}
           <button
             onClick={toggleAquaBot}
-            className="p-2 rounded-xl text-cyan-700 bg-cyan-50 hover:bg-cyan-100 transition-colors relative cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl text-cyan-700 bg-cyan-50 hover:bg-cyan-100 transition-colors relative cursor-pointer shrink-0"
             title="Open AquaBot AI Assistant"
             aria-label="AquaBot AI Assistant"
           >
-            <Sparkles size={18} />
+            <Sparkles size={16} className="sm:hidden" />
+            <Sparkles size={18} className="hidden sm:block" />
           </button>
 
           {/* Notification Center */}
           <button
             onClick={toggleNotifCenter}
-            className="p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors relative cursor-pointer"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors relative cursor-pointer shrink-0"
             title="Notification Center (Push & WhatsApp)"
             aria-label="Notification Center"
           >
-            <Bell size={18} />
+            <Bell size={16} className="sm:hidden" />
+            <Bell size={18} className="hidden sm:block" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-bounce">
+              <span className="absolute top-1 right-1 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-rose-500 text-white rounded-full text-[8px] sm:text-[9px] font-bold flex items-center justify-center animate-bounce">
                 {unreadCount}
               </span>
             )}
@@ -244,7 +259,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
           {/* Demo Control Drawer Button */}
           <button
             onClick={onOpenDemoPanel}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer"
+            className="flex items-center gap-1 sm:gap-1.5 p-1.5 sm:px-3 sm:py-1.5 rounded-xl bg-gradient-to-r from-teal-600 to-cyan-600 text-white text-xs font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer shrink-0"
             title="Open Demo Control Panel"
           >
             <Sliders size={14} />
@@ -252,6 +267,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenDemoPanel }) => {
           </button>
         </div>
       </div>
+
     </header>
   );
 };

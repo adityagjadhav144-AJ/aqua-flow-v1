@@ -154,8 +154,12 @@ export const UpiQrPaymentCard: React.FC<UpiQrPaymentCardProps> = ({
             />
 
             {/* Central Badge Overlay */}
-            <div className="absolute w-8 h-8 rounded-full bg-white shadow-md border-2 border-cyan-600 flex items-center justify-center text-cyan-700 pointer-events-none font-black text-xs">
-              💧
+            <div className="absolute w-8 h-8 rounded-full bg-white shadow-md border-2 border-cyan-600 flex items-center justify-center overflow-hidden p-0.5 pointer-events-none">
+              <img
+                src="/assets/aistudio/image_a469dbfe.png"
+                alt="AquaFlow Icon"
+                className="w-full h-full object-contain"
+              />
             </div>
           </div>
         </div>
@@ -174,12 +178,12 @@ export const UpiQrPaymentCard: React.FC<UpiQrPaymentCardProps> = ({
         </div>
 
         {/* UPI Apps Icons Row */}
-        <div className="mt-3 flex items-center justify-center gap-2 pt-2 border-t border-slate-100 w-full">
-          <span className="text-[10px] text-slate-400 font-semibold mr-1">Scan with:</span>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 pt-2 border-t border-slate-100 w-full">
+          <span className="text-[10px] text-slate-400 font-semibold mr-1 shrink-0">Scan with:</span>
           {['GPay', 'PhonePe', 'Paytm', 'BHIM', 'Cred'].map((app) => (
             <span
               key={app}
-              className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200"
+              className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0"
             >
               {app}
             </span>

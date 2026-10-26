@@ -2,7 +2,7 @@ import React from 'react';
 import { Booking } from '../../types';
 import { formatINR } from '../../services/pricing';
 import { db } from '../../services/db';
-import { X, Printer, ShieldCheck, CheckCircle2, Droplets } from 'lucide-react';
+import { X, Printer, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface ReceiptModalProps {
@@ -46,20 +46,24 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ booking, onClose }) 
         </div>
 
         {/* Receipt Body */}
-        <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-700 font-sans print:p-0">
+        <div className="p-3.5 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 text-xs text-slate-700 font-sans print:p-0">
           {/* Header */}
-          <div className="flex justify-between items-start border-b border-slate-200 pb-4">
+          <div className="flex flex-wrap sm:flex-nowrap justify-between items-start gap-2 border-b border-slate-200 pb-4">
             <div>
               <div className="flex items-center gap-1.5 mb-1">
-                <div className="w-6 h-6 rounded-lg bg-cyan-600 text-white flex items-center justify-center">
-                  <Droplets size={14} />
+                <div className="w-6 h-6 rounded-lg overflow-hidden bg-white border border-cyan-200 flex items-center justify-center shrink-0 p-0.5 shadow-2xs">
+                  <img
+                    src="/assets/aistudio/image_a469dbfe.png"
+                    alt="AquaFlow"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <span className="font-extrabold text-base text-slate-900 tracking-tight">AquaFlow Pune</span>
               </div>
               <p className="text-[11px] text-slate-500">Digital Water Logistics & Escrow Platform</p>
               <p className="text-[10px] text-slate-400">GSTIN: 27AABCA1234F1Z9 • Pune, MH</p>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
                 Escrow Settled
               </span>
@@ -71,7 +75,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ booking, onClose }) 
           </div>
 
           {/* Delivery & Customer Info */}
-          <div className="grid grid-cols-2 gap-4 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
             <div>
               <div className="text-[10px] uppercase font-bold text-slate-400">Customer Details</div>
               <div className="font-semibold text-slate-900 mt-0.5">Neha Deshpande</div>
@@ -115,8 +119,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({ booking, onClose }) 
           </div>
 
           {/* Line Item Financial Breakdown */}
-          <div className="space-y-2">
-            <table className="w-full text-xs">
+          <div className="space-y-2 overflow-x-auto">
+            <table className="w-full text-xs min-w-[340px]">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 text-[10px] uppercase font-bold">
                   <th className="text-left pb-1.5">Item Description</th>

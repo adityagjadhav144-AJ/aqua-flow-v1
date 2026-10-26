@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Droplets,
   ShieldCheck,
   Languages,
   CheckCircle2,
@@ -39,8 +38,12 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           {/* Brand lockup */}
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-700 to-cyan-500 flex items-center justify-center text-white shadow-sm">
-              <Droplets className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl overflow-hidden bg-white border border-sky-200/90 p-0.5 flex items-center justify-center shadow-sm shrink-0">
+              <img
+                src="/assets/aistudio/image_a469dbfe.png"
+                alt="AquaFlow Icon"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">

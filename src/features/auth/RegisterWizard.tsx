@@ -308,33 +308,37 @@ export const RegisterWizard: React.FC<RegisterWizardProps> = ({ onSuccess, onSwi
   return (
     <div className="w-full">
       {/* Wizard Progress Stepper */}
-      <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-3 text-xs">
-        <div className={`flex items-center gap-1.5 ${step === 'role' ? 'text-sky-700 font-semibold' : 'text-slate-500'}`}>
-          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 'role' ? 'bg-sky-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+      <div className="mb-6 flex items-center justify-between border-b border-slate-200 pb-3 text-xs overflow-x-auto scrollbar-none">
+        <div className={`flex items-center gap-1.5 shrink-0 ${step === 'role' ? 'text-sky-700 font-semibold' : 'text-slate-500'}`}>
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${step === 'role' ? 'bg-sky-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
             1
           </span>
-          <span>{t('step_role')}</span>
+          <span className="hidden sm:inline">{t('step_role')}</span>
+          <span className="sm:hidden text-[10px]">Role</span>
         </div>
-        <div className="h-0.5 w-6 bg-slate-200" />
-        <div className={`flex items-center gap-1.5 ${step === 'details' ? 'text-sky-700 font-semibold' : 'text-slate-500'}`}>
-          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 'details' ? 'bg-sky-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+        <div className="h-0.5 w-4 sm:w-6 bg-slate-200 shrink-0" />
+        <div className={`flex items-center gap-1.5 shrink-0 ${step === 'details' ? 'text-sky-700 font-semibold' : 'text-slate-500'}`}>
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${step === 'details' ? 'bg-sky-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
             2
           </span>
-          <span>{t('step_details')}</span>
+          <span className="hidden sm:inline">{t('step_details')}</span>
+          <span className="sm:hidden text-[10px]">Details</span>
         </div>
-        <div className="h-0.5 w-6 bg-slate-200" />
-        <div className={`flex items-center gap-1.5 ${step === 'otp' ? 'text-sky-700 font-semibold' : 'text-slate-500'}`}>
-          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 'otp' ? 'bg-sky-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+        <div className="h-0.5 w-4 sm:w-6 bg-slate-200 shrink-0" />
+        <div className={`flex items-center gap-1.5 shrink-0 ${step === 'otp' ? 'text-sky-700 font-semibold' : 'text-slate-500'}`}>
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${step === 'otp' ? 'bg-sky-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
             3
           </span>
-          <span>{t('step_otp')}</span>
+          <span className="hidden sm:inline">{t('step_otp')}</span>
+          <span className="sm:hidden text-[10px]">OTP</span>
         </div>
-        <div className="h-0.5 w-6 bg-slate-200" />
-        <div className={`flex items-center gap-1.5 ${step === 'badge' ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
-          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold ${step === 'badge' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
+        <div className="h-0.5 w-4 sm:w-6 bg-slate-200 shrink-0" />
+        <div className={`flex items-center gap-1.5 shrink-0 ${step === 'badge' ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 ${step === 'badge' ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-700'}`}>
             4
           </span>
-          <span>{t('step_badge')}</span>
+          <span className="hidden sm:inline">{t('step_badge')}</span>
+          <span className="sm:hidden text-[10px]">Badge</span>
         </div>
       </div>
 
@@ -753,7 +757,7 @@ export const RegisterWizard: React.FC<RegisterWizardProps> = ({ onSuccess, onSwi
 
           {/* 6-Digit OTP Inputs */}
           <div>
-            <div className="flex justify-center gap-2 sm:gap-3 my-4">
+            <div className="flex justify-center gap-1.5 sm:gap-3 my-4">
               {otpDigits.map((digit, idx) => (
                 <input
                   key={idx}
@@ -764,7 +768,7 @@ export const RegisterWizard: React.FC<RegisterWizardProps> = ({ onSuccess, onSwi
                   value={digit}
                   onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                  className="w-11 h-12 text-center text-xl font-bold font-mono bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600 shadow-sm"
+                  className="w-9 sm:w-11 h-11 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono bg-white border border-slate-300 rounded-lg text-slate-900 focus:outline-none focus:ring-2 focus:ring-sky-600 focus:border-sky-600 shadow-sm shrink-0"
                 />
               ))}
             </div>

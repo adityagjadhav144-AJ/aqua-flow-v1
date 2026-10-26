@@ -251,7 +251,7 @@ export const DriverView: React.FC = () => {
               <LeafletMap
                 center={[activeJob.lat, activeJob.lng]}
                 zoom={14}
-                className="h-80 w-full rounded-2xl overflow-hidden border border-slate-200"
+                className="h-60 sm:h-80 w-full rounded-2xl overflow-hidden border border-slate-200"
                 markers={[
                   {
                     id: 'tanker',

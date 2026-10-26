@@ -38,6 +38,12 @@ export const MunicipalView: React.FC = () => {
   const [msgHi, setMsgHi] = useState('');
   const [isTranslating, setIsTranslating] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
 
   const refreshData = () => {
     const data = db.getData();
@@ -85,7 +91,7 @@ export const MunicipalView: React.FC = () => {
       });
 
       await mockApi.publishSchedule(newEvent.id);
-      alert('Alert successfully published! Push notifications and simulated WhatsApp messages sent to 14,200 residents in zone.');
+      showToast('✓ Alert successfully published! Push notifications and simulated WhatsApp messages sent to 14,200 residents in zone.');
       refreshData();
     } finally {
       setIsPublishing(false);
@@ -95,7 +101,7 @@ export const MunicipalView: React.FC = () => {
   // Dispatch Emergency Tanker for Complaint
   const handleDispatchEmergencyTanker = async (complaintId: string) => {
     await mockApi.updateComplaintStatus(complaintId, 'in_progress', 'Emergency Tanker MH-12 PMC 001');
-    alert('Emergency Free Municipal Tanker dispatched to complaint location. Citizen notified.');
+    showToast('✓ Emergency Free Municipal Tanker dispatched to complaint location. Citizen notified.');
     refreshData();
   };
 
@@ -128,6 +134,16 @@ export const MunicipalView: React.FC = () => {
           </span>
         </div>
       </div>
+
+      {/* Action Toast Banner */}
+      {toastMsg && (
+        <div className="bg-emerald-900 border border-emerald-600 text-emerald-100 p-3.5 rounded-2xl text-xs font-bold shadow-sm animate-in fade-in flex items-center justify-between">
+          <span>{toastMsg}</span>
+          <button onClick={() => setToastMsg(null)} className="text-emerald-300 hover:text-white ml-2">
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -336,7 +352,7 @@ export const MunicipalView: React.FC = () => {
                       }
                     });
                     refreshData();
-                    alert(`Vendor ${fv.name} reinstated after passing physical lab sample inspection.`);
+                    showToast(`✓ Vendor ${fv.name} reinstated after passing physical lab sample inspection.`);
                   }}
                   className="py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
                 >

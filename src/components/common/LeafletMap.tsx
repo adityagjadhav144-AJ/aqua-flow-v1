@@ -221,5 +221,5 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
     }
   }, [routePolyline]);
 
-  return <div ref={mapContainerRef} className={className} />;
+  return <div ref={mapContainerRef} className={`max-w-full relative ${className}`} />;
 };

@@ -30,6 +30,12 @@ export const SocietyView: React.FC = () => {
   const [societyBookings, setSocietyBookings] = useState<Booking[]>([]);
   const [gateMode, setGateMode] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<Booking | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
 
   const refreshData = () => {
     const data = db.getData();
@@ -97,7 +103,7 @@ export const SocietyView: React.FC = () => {
               </span>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap sm:flex-nowrap gap-2">
               <button
                 onClick={async () => {
                   await mockApi.logGateEntry({
@@ -111,7 +117,7 @@ export const SocietyView: React.FC = () => {
                     verifiedBy: 'Guard Kailash',
                   });
                   refreshData();
-                  alert('Vehicle MH-12 CD 9012 entry recorded with PMC source verified badge!');
+                  showToast('✓ Vehicle MH-12 CD 9012 entry recorded with PMC source verified badge!');
                 }}
                 className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg"
               >
@@ -120,7 +126,7 @@ export const SocietyView: React.FC = () => {
               </button>
 
               <button
-                onClick={() => alert('Vehicle marked Gate OUT. Delivery logged to society ledger.')}
+                onClick={() => showToast('✓ Vehicle marked Gate OUT. Delivery logged to society ledger.')}
                 className="py-3 px-5 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-2xl text-sm cursor-pointer"
               >
                 Mark OUT
@@ -128,6 +134,12 @@ export const SocietyView: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {toastMsg && (
+          <div className="bg-emerald-900/90 border border-emerald-500 text-emerald-200 px-4 py-2.5 rounded-2xl text-xs font-semibold text-center my-2">
+            {toastMsg}
+          </div>
+        )}
 
         <div className="text-xs text-slate-500 text-center">
           Security Gate 1 • Tap 'Mark Gate IN' to auto-verify against digital manifest
@@ -180,7 +192,7 @@ export const SocietyView: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
-                alert('Order approved by Society Treasurer. Matched to vendor.');
+                showToast('✓ Order approved by Society Treasurer. Matched to vendor.');
                 setPendingApproval(null);
               }}
               className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl cursor-pointer"

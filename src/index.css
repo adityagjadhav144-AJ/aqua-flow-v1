@@ -1,1 +1,61 @@
 @import "tailwindcss";
+
+/* Viewport scaling and anti-horizontal-overflow rules */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+#root {
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Ensure images, SVGs, pictures and canvases never bleed out of their containers */
+img,
+picture,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+/* CRITICAL Leaflet Map Tile Scaling Fix:
+   Tailwind's img resets (max-width: 100%) distort and tear Leaflet map tiles.
+   These rules preserve authentic geographic tile rendering on all screens. */
+.leaflet-container img,
+.leaflet-tile,
+.leaflet-tile-pane img,
+.leaflet-image-layer {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+}
+
+/* Leaflet Container Responsive Stability */
+.leaflet-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  z-index: 10;
+}
+
+/* Mobile Touch Scrollbar Helpers */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

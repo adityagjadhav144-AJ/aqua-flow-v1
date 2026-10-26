@@ -106,15 +106,14 @@ export const VendorView: React.FC = () => {
             <button
               onClick={() => {
                 setAppealSubmitted(true);
-                alert('Appeal submitted to PMC Municipal Water Quality cell for physical re-testing.');
               }}
               className="py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
             >
               Submit Quality Rectification Appeal
             </button>
           ) : (
-            <div className="text-xs font-bold text-amber-800">
-              Appeal submitted to PMC Officer. Awaiting sample lab verification.
+            <div className="text-xs font-bold text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+              ✓ Appeal logged with PMC Municipal Water Quality cell for physical re-testing.
             </div>
           )}
         </div>
@@ -148,7 +147,7 @@ export const VendorView: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 pb-2">
+      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-none flex-nowrap">
         {[
           { id: 'fleet', label: 'Fleet & Drivers' },
           { id: 'batching', label: 'Route Batching (2-Opt AI)' },
@@ -158,7 +157,7 @@ export const VendorView: React.FC = () => {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            className={`py-2 px-4 rounded-2xl text-xs font-extrabold transition-all cursor-pointer ${
+            className={`py-2 px-3 sm:px-4 rounded-2xl text-xs font-extrabold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === tab.id
                 ? 'bg-slate-900 text-white shadow-xs'
                 : 'bg-white text-slate-600 hover:bg-slate-100'
@@ -303,7 +302,7 @@ export const VendorView: React.FC = () => {
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
           <h3 className="font-extrabold text-sm text-slate-900">Settled Vendor Payouts & Escrow Releases</h3>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
+            <table className="w-full text-xs text-left min-w-[480px]">
               <thead>
                 <tr className="border-b border-slate-200 text-slate-400 text-[10px] uppercase font-bold">
                   <th className="pb-2">Booking ID</th>

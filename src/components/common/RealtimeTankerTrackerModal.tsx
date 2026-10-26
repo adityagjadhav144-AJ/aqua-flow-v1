@@ -42,6 +42,13 @@ export const RealtimeTankerTrackerModal: React.FC<RealtimeTankerTrackerModalProp
     booking.currentLng || 73.805,
   ]);
   const [zoomLevel, setZoomLevel] = useState(14);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
 
   const data = db.getData();
   const vendor = data.vendors.find((v) => v.id === booking.vendorId);
@@ -285,11 +292,11 @@ export const RealtimeTankerTrackerModal: React.FC<RealtimeTankerTrackerModalProp
               {/* Call Mock Button */}
               <button
                 onClick={() =>
-                  alert(
-                    `Simulated Call to Driver ${driver?.name || 'Santosh Jadhav'} (+91 98901 67890)`
+                  showToast(
+                    `Simulating call to ${driver?.name || 'Santosh Jadhav'} (+91 98901 67890)...`
                   )
                 }
-                className="p-2.5 rounded-xl bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors flex items-center gap-1 font-bold text-xs cursor-pointer shadow-2xs"
+                className="p-2 sm:p-2.5 rounded-xl bg-cyan-50 text-cyan-700 hover:bg-cyan-100 transition-colors flex items-center gap-1 font-bold text-xs cursor-pointer shadow-2xs shrink-0"
                 title="Call driver"
               >
                 <PhoneCall size={14} />
@@ -352,14 +359,50 @@ export const RealtimeTankerTrackerModal: React.FC<RealtimeTankerTrackerModalProp
           </div>
         </div>
 
+        {/* Inline Toast Banner */}
+        {toastMsg && (
+          <div className="bg-cyan-900 text-white px-4 py-2 text-xs font-semibold flex items-center justify-between animate-in fade-in">
+            <span>{toastMsg}</span>
+            <button onClick={() => setToastMsg(null)} className="text-cyan-300 hover:text-white">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* Inline Cancel Confirmation Banner */}
+        {showCancelConfirm && (
+          <div className="bg-rose-50 border-t border-rose-200 p-3 text-xs space-y-2 animate-in slide-in-from-bottom">
+            <p className="text-rose-900 font-semibold">
+              Cancel booking {booking.id}? If driver has accepted, a ₹50 nominal cancellation fee applies.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (onCancelBooking) onCancelBooking(booking.id);
+                  onClose();
+                }}
+                className="py-1 px-3 bg-rose-600 hover:bg-rose-700 text-white rounded-lg font-bold"
+              >
+                Yes, Cancel Order
+              </button>
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="py-1 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-semibold"
+              >
+                Keep Order
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Bottom Action Footer */}
-        <div className="p-3.5 px-4 bg-white border-t border-slate-100 shrink-0 flex items-center gap-2">
+        <div className="p-3 sm:p-3.5 px-3 sm:px-4 bg-white border-t border-slate-100 shrink-0 flex flex-wrap sm:flex-nowrap items-center gap-2">
           {isArrived ? (
             <button
               onClick={() => {
                 if (onOpenQrModal) onOpenQrModal();
               }}
-              className="flex-1 py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:brightness-105 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 animate-pulse cursor-pointer"
+              className="w-full py-3 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:brightness-105 text-white font-extrabold rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 animate-pulse cursor-pointer"
             >
               <QrCode size={16} />
               <span>Show Dynamic Delivery QR (Proof of Delivery)</span>
@@ -373,31 +416,27 @@ export const RealtimeTankerTrackerModal: React.FC<RealtimeTankerTrackerModalProp
                       title: 'AquaFlow Tanker Live Tracking',
                       text: `Tracking 10,000 L water tanker arriving at Baner. ETA: ${booking.etaMin} mins.`,
                       url: window.location.href,
-                    });
+                    }).catch(() => {});
                   } else {
-                    alert('Tracking link copied to clipboard!');
+                    navigator.clipboard.writeText(window.location.href);
+                    showToast('Tracking link copied to clipboard!');
                   }
                 }}
-                className="py-2.5 px-3.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="py-2 sm:py-2.5 px-2.5 sm:px-3.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
               >
                 <Share2 size={14} />
                 <span className="hidden sm:inline">Share Track</span>
               </button>
 
               <button
-                onClick={() => {
-                  if (confirm('Are you sure you want to cancel this booking? If driver has already accepted, a ₹50 cancellation fee applies.')) {
-                    if (onCancelBooking) onCancelBooking(booking.id);
-                    onClose();
-                  }
-                }}
-                className="py-2.5 px-3 border border-rose-200 hover:bg-rose-50 text-rose-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+                onClick={() => setShowCancelConfirm(true)}
+                className="py-2 sm:py-2.5 px-2.5 sm:px-3 border border-rose-200 hover:bg-rose-50 text-rose-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer shrink-0"
               >
-                Cancel Order
+                Cancel
               </button>
 
               <div className="flex-1 text-right">
-                <span className="text-[11px] font-extrabold text-cyan-900 bg-cyan-50 px-3 py-2 rounded-xl border border-cyan-100 inline-block">
+                <span className="text-[11px] font-extrabold text-cyan-900 bg-cyan-50 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl border border-cyan-100 inline-block">
                   ETA: {booking.etaMin} mins
                 </span>
               </div>
