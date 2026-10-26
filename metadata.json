@@ -1,0 +1,6 @@
+{
+  "name": "AquaFlow Pune - Digital Water & Tanker Operations Platform",
+  "description": "Smart, fair-price water logistics, community pooling, digital proof of delivery, and municipal supply monitoring for Pune and Pimpri-Chinchwad.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
