@@ -149,11 +149,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
 
   return (
     <div className="w-full">
-      {/* Brand Header Lockup matching inspiration image */}
-      <div className="mb-6 pb-2">
+      {/* Brand Header Lockup with Glassy Badge */}
+      <div className="mb-5 pb-1">
         <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
           {/* Logo Icon */}
-          <div className="w-8 h-8 rounded-lg overflow-hidden bg-white border border-blue-200/90 p-0.5 flex items-center justify-center shadow-xs shrink-0">
+          <div className="w-8 h-8 rounded-lg overflow-hidden bg-white/70 backdrop-blur-md border border-white/80 p-0.5 flex items-center justify-center shadow-xs shrink-0">
             <img
               src="/assets/aistudio/image_a469dbfe.png"
               alt="AquaFlow Icon"
@@ -162,15 +162,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
           </div>
 
           {/* Brand Name */}
-          <span className="text-lg sm:text-xl font-extrabold text-blue-600 tracking-tight">
+          <span className="text-lg sm:text-xl font-black text-blue-700 tracking-tight drop-shadow-2xs">
             AquaFlow
           </span>
 
           {/* Divider */}
-          <span className="text-slate-300 font-light hidden sm:inline">|</span>
+          <span className="text-slate-400 font-light hidden sm:inline">|</span>
 
           {/* Subtitle / Platform Name */}
-          <span className="text-xs sm:text-sm font-bold text-slate-800 tracking-tight">
+          <span className="text-xs sm:text-sm font-bold text-slate-900 tracking-tight">
             {currentLanguage === 'mr'
               ? 'पुणे मनपा अधिकृत जल व टँकर वितरण मंच'
               : 'Smart Water & Tanker Operations Platform'}
@@ -178,48 +178,48 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
         </div>
       </div>
 
-      {/* Clean Segmented Tabs matching inspiration image */}
-      <div className="flex items-center gap-6 border-b border-slate-200/90 mb-6">
+      {/* Clean Glassy Segmented Tabs */}
+      <div className="flex items-center gap-6 border-b border-white/40 mb-5">
         <button
           type="button"
           onClick={() => setActiveSubTab('account')}
-          className={`pb-2.5 text-sm font-semibold transition-all relative cursor-pointer ${
+          className={`pb-2.5 text-sm transition-all relative cursor-pointer ${
             activeSubTab === 'account'
-              ? 'text-blue-600 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-blue-700 font-black'
+              : 'text-slate-700 font-semibold hover:text-slate-950'
           }`}
         >
           <span>{currentLanguage === 'mr' ? 'खाते लॉगिन' : 'Account Login'}</span>
           {activeSubTab === 'account' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full shadow-xs" />
           )}
         </button>
 
         <button
           type="button"
           onClick={() => setActiveSubTab('roles')}
-          className={`pb-2.5 text-sm font-semibold transition-all relative cursor-pointer flex items-center gap-1.5 ${
+          className={`pb-2.5 text-sm transition-all relative cursor-pointer flex items-center gap-1.5 ${
             activeSubTab === 'roles'
-              ? 'text-blue-600 font-bold'
-              : 'text-slate-500 hover:text-slate-800'
+              ? 'text-blue-700 font-black'
+              : 'text-slate-700 font-semibold hover:text-slate-950'
           }`}
         >
           <span>{currentLanguage === 'mr' ? 'त्वरित भूमिका प्रवेश' : 'Quick Role Access'}</span>
-          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 font-bold">
+          <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-blue-600/15 text-blue-800 font-bold border border-blue-400/30">
             1-Click
           </span>
           {activeSubTab === 'roles' && (
-            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full" />
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600 rounded-full shadow-xs" />
           )}
         </button>
       </div>
 
-      {/* TAB 1: Account Login (Sleek minimalist fields matching the reference image) */}
+      {/* TAB 1: Account Login (Frosted translucent inputs matching reference image) */}
       {activeSubTab === 'account' ? (
         <form onSubmit={handleManualLogin} className="space-y-4">
           {/* Field 1: User / Phone / ID */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-600">
               <User className="w-4 h-4" />
             </div>
             <input
@@ -235,13 +235,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
                   ? 'नोंदणीकृत मोबाईल नंबर किंवा आयडी'
                   : 'Enter Mobile Number, Email or ID'
               }
-              className="w-full pl-10 pr-24 py-3 bg-white border border-slate-200/90 hover:border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-xs transition-all"
+              className="w-full pl-10 pr-24 py-3 bg-white/45 hover:bg-white/60 focus:bg-white/80 backdrop-blur-xl border border-white/60 hover:border-white/90 focus:border-blue-500 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-600 focus:outline-none focus:ring-4 focus:ring-blue-500/15 shadow-inner transition-all font-medium"
             />
             {/* Quick pre-fill chip */}
             <button
               type="button"
               onClick={() => setAccountQuery('98220 12345')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-colors cursor-pointer"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] px-2 py-1 rounded-md bg-white/60 hover:bg-white/90 text-slate-800 font-bold border border-white/70 transition-colors cursor-pointer shadow-2xs"
             >
               Demo Fill
             </button>
@@ -249,7 +249,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
 
           {/* Field 2: Password */}
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-600">
               <Lock className="w-4 h-4" />
             </div>
             <input
@@ -258,22 +258,22 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder={currentLanguage === 'mr' ? 'पासवर्ड प्रविष्ट करा' : 'Enter Password'}
-              className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200/90 hover:border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-xs transition-all"
+              className="w-full pl-10 pr-10 py-3 bg-white/45 hover:bg-white/60 focus:bg-white/80 backdrop-blur-xl border border-white/60 hover:border-white/90 focus:border-blue-500 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-600 focus:outline-none focus:ring-4 focus:ring-blue-500/15 shadow-inner transition-all font-medium"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-900 p-1 cursor-pointer"
               title={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
 
-          {/* Field 3: Security Verification Code / Captcha (Matching the reference image) */}
+          {/* Field 3: Security Verification Code / Captcha */}
           <div className="relative flex gap-2.5">
             <div className="relative flex-1">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-600">
                 <ShieldCheck className="w-4 h-4" />
               </div>
               <input
@@ -284,7 +284,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
                 placeholder={
                   currentLanguage === 'mr' ? 'सुरक्षा कोड प्रविष्ट करा' : 'Enter Verification Code'
                 }
-                className="w-full pl-10 pr-3 py-3 bg-white border border-slate-200/90 hover:border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-xs transition-all"
+                className="w-full pl-10 pr-3 py-3 bg-white/45 hover:bg-white/60 focus:bg-white/80 backdrop-blur-xl border border-white/60 hover:border-white/90 focus:border-blue-500 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-600 focus:outline-none focus:ring-4 focus:ring-blue-500/15 shadow-inner transition-all font-medium"
               />
             </div>
 
@@ -292,42 +292,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
             <div
               onClick={refreshCaptcha}
               title="Click to refresh security code"
-              className="h-11 sm:h-12 px-3.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-xl flex items-center gap-1.5 cursor-pointer hover:bg-blue-100/70 transition-colors select-none shrink-0"
+              className="h-11 sm:h-12 px-3 sm:px-3.5 bg-white/50 hover:bg-white/70 backdrop-blur-xl border border-white/70 rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors select-none shrink-0 shadow-xs"
             >
-              <span className="font-mono text-sm sm:text-base font-black tracking-widest text-blue-700 italic">
+              <span className="font-mono text-sm sm:text-base font-black tracking-widest text-blue-800 italic">
                 {captchaCode}
               </span>
-              <RefreshCw className="w-3 h-3 text-blue-400" />
+              <RefreshCw className="w-3 h-3 text-blue-600" />
             </div>
           </div>
 
           {/* Remember me & Default password helper */}
-          <div className="flex items-center justify-between text-xs text-slate-500 pt-0.5">
+          <div className="flex items-center justify-between text-xs text-slate-800 pt-0.5">
             <label className="flex items-center gap-1.5 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-3.5 h-3.5 text-blue-600 rounded border-slate-300 focus:ring-blue-500"
+                className="w-3.5 h-3.5 text-blue-600 rounded border-white/70 bg-white/50 focus:ring-blue-500"
               />
-              <span>{currentLanguage === 'mr' ? 'लॉगिन जतन करा' : 'Remember login'}</span>
+              <span className="font-semibold">{currentLanguage === 'mr' ? 'लॉगिन जतन करा' : 'Remember login'}</span>
             </label>
 
-            <span className="text-[11px] text-slate-400 font-mono">Default: password123</span>
+            <span className="text-[11px] text-slate-700 font-mono font-medium">Default: password123</span>
           </div>
 
           {/* Error Message */}
           {errorMessage && (
-            <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-medium">
+            <div className="p-2.5 rounded-xl bg-rose-50/90 backdrop-blur-md border border-rose-200 text-xs text-rose-800 font-semibold shadow-xs">
               {errorMessage}
             </div>
           )}
 
-          {/* Primary Action Button (Vivid Blue styled directly like inspiration image) */}
+          {/* Primary Action Button (Vivid Blue with Glass Shadow) */}
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 active:scale-[0.99] text-white font-bold rounded-xl text-sm sm:text-base tracking-wide shadow-lg shadow-blue-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
+            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 active:scale-[0.99] text-white font-extrabold rounded-xl text-sm sm:text-base tracking-wide shadow-xl shadow-blue-600/35 border border-white/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed mt-2"
           >
             {isSubmitting ? (
               <>
@@ -340,9 +340,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
           </button>
         </form>
       ) : (
-        /* TAB 2: Quick Role Access (1-Click Evaluator Personas) */
+        /* TAB 2: Quick Role Access (Translucent Glass Persona Cards) */
         <div className="space-y-3">
-          <p className="text-xs text-slate-500 leading-relaxed mb-3">
+          <p className="text-xs text-slate-800 font-medium leading-relaxed mb-3">
             {currentLanguage === 'mr'
               ? 'कोणत्याही भूमिकेवर टॅप करा आणि थेट संबंधित अधिकृत डॅशबोर्डमध्ये त्वरित प्रवेश करा:'
               : 'Select any civic persona below to instantly experience their isolated dashboard:'}
@@ -356,9 +356,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
                   key={account.id}
                   type="button"
                   onClick={() => handleQuickLogin(account.id)}
-                  className="p-3 bg-white hover:bg-blue-50/70 border border-slate-200 hover:border-blue-400 rounded-xl text-left transition-all group flex items-start gap-3 cursor-pointer shadow-xs hover:shadow-sm"
+                  className="p-2.5 sm:p-3 bg-white/40 hover:bg-white/75 backdrop-blur-xl border border-white/50 hover:border-blue-400 rounded-xl text-left transition-all group flex items-start gap-2.5 sm:gap-3 cursor-pointer shadow-2xs hover:shadow-md"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 group-hover:bg-blue-600 group-hover:text-white text-blue-700 flex items-center justify-center shrink-0 transition-colors">
+                  <div className="w-8 h-8 rounded-lg bg-blue-600/20 group-hover:bg-blue-600 group-hover:text-white text-blue-800 flex items-center justify-center shrink-0 transition-colors border border-blue-400/30">
                     <Icon className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -366,9 +366,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
                       <span className="text-xs font-bold text-slate-900 group-hover:text-blue-900 truncate">
                         {account.name}
                       </span>
-                      <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 transition-transform group-hover:translate-x-0.5 shrink-0 ml-1" />
+                      <ArrowRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-blue-700 transition-transform group-hover:translate-x-0.5 shrink-0 ml-1" />
                     </div>
-                    <div className="text-[10px] text-slate-500 truncate mt-0.5">
+                    <div className="text-[10px] text-slate-700 font-medium truncate mt-0.5">
                       {account.subtext}
                     </div>
                   </div>
@@ -380,14 +380,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onSuccess, onSwitchToRegis
       )}
 
       {/* Switch to Registration */}
-      <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-        <span className="text-slate-500">
+      <div className="mt-5 pt-3.5 border-t border-white/40 flex items-center justify-between text-xs">
+        <span className="text-slate-800 font-medium">
           {currentLanguage === 'mr' ? 'खाते नाही?' : 'Need an authorized role?'}
         </span>
         <button
           type="button"
           onClick={onSwitchToRegister}
-          className="font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+          className="font-bold text-blue-700 hover:text-blue-900 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
         >
           <span>
             {currentLanguage === 'mr' ? 'अधिकृत नोंदणी करा' : 'Register New Account'}
