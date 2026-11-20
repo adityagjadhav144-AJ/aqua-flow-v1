@@ -1,5 +1,6 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 export interface MapMarker {
   id: string;
@@ -17,6 +18,7 @@ interface LeafletMapProps {
   zoom?: number;
   markers?: MapMarker[];
   routePolyline?: [number, number][];
+  traveledPolyline?: [number, number][];
   className?: string;
   autoFitBounds?: boolean;
   followTruck?: boolean;
@@ -28,6 +30,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   zoom = 13,
   markers = [],
   routePolyline,
+  traveledPolyline,
   className = 'h-64 w-full rounded-2xl overflow-hidden',
   autoFitBounds = false,
   followTruck = false,
@@ -36,9 +39,12 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersGroupRef = useRef<L.LayerGroup | null>(null);
+  const markerInstancesRef = useRef<Record<string, L.Marker>>({});
   const polylineRef = useRef<L.Polyline | null>(null);
   const routeBgRef = useRef<L.Polyline | null>(null);
+  const traveledRef = useRef<L.Polyline | null>(null);
   const initialFitDoneRef = useRef(false);
+  const [tilesFailed, setTilesFailed] = useState(false);
 
   // Initialize Map
   useEffect(() => {
@@ -50,11 +56,24 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         attributionControl: false,
       }).setView(center, zoom);
 
-      // Free OpenStreetMap tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Primary OpenStreetMap / CARTO Voyager tiles with graceful offline grid fallback
+      const tileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
         maxZoom: 19,
-      }).addTo(map);
+        subdomains: 'abcd',
+      });
 
+      let tileErrorCount = 0;
+      tileLayer.on('tileerror', () => {
+        tileErrorCount += 1;
+        if (tileErrorCount >= 4) {
+          setTilesFailed(true);
+        }
+      });
+      tileLayer.on('tileload', () => {
+        setTilesFailed(false);
+      });
+
+      tileLayer.addTo(map);
       L.control.zoom({ position: 'bottomright' }).addTo(map);
 
       if (onMapClick) {
@@ -66,22 +85,23 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       markersGroupRef.current = L.layerGroup().addTo(map);
       mapInstanceRef.current = map;
 
-      // Force recalculate dimensions in case container renders inside modal or tab
       setTimeout(() => {
         map.invalidateSize();
-      }, 200);
+      }, 150);
 
       const resizeObserver = new ResizeObserver(() => {
         if (mapInstanceRef.current) {
           mapInstanceRef.current.invalidateSize();
         }
       });
-      if (mapContainerRef.current) {
-        resizeObserver.observe(mapContainerRef.current);
-      }
+      resizeObserver.observe(mapContainerRef.current);
 
       return () => {
         resizeObserver.disconnect();
+        map.remove();
+        mapInstanceRef.current = null;
+        markersGroupRef.current = null;
+        markerInstancesRef.current = {};
       };
     }
   }, []);
@@ -90,15 +110,23 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     if (followTruck) {
-      mapInstanceRef.current.panTo(center, { animate: true, duration: 0.8 });
+      mapInstanceRef.current.panTo(center, { animate: true, duration: 0.7 });
     }
   }, [center[0], center[1], followTruck]);
 
-  // Update markers
+  // Smoothly update markers in-place without flickering
   useEffect(() => {
     if (!mapInstanceRef.current || !markersGroupRef.current) return;
 
-    markersGroupRef.current.clearLayers();
+    const currentIds = new Set(markers.map((m) => m.id));
+
+    // Remove stale markers
+    Object.keys(markerInstancesRef.current).forEach((existingId) => {
+      if (!currentIds.has(existingId)) {
+        markerInstancesRef.current[existingId].remove();
+        delete markerInstancesRef.current[existingId];
+      }
+    });
 
     markers.forEach((m) => {
       let iconHtml = `
@@ -110,10 +138,10 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       if (m.type === 'truck') {
         const etaText = m.etaMin !== undefined ? (m.etaMin > 0 ? `${m.etaMin}m` : 'Arrived') : '';
         iconHtml = `
-          <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+          <div style="position: relative; display: flex; flex-direction: column; align-items: center; pointer-events: auto;">
             ${
               etaText
-                ? `<div style="background-color: #0A2540; color: #38BDF8; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 9999px; margin-bottom: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); white-space: nowrap; border: 1px solid #0284C7;">ETA ${etaText}</div>`
+                ? `<div style="background-color: #0A2540; color: #38BDF8; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 9999px; margin-bottom: 3px; box-shadow: 0 2px 6px rgba(0,0,0,0.3); white-space: nowrap; border: 1px solid #0284C7;">${m.etaMin === 0 ? 'Arrived' : `ETA ${etaText}`}</div>`
                 : ''
             }
             <div style="position: relative; width: 42px; height: 42px; background: linear-gradient(135deg, #0284C7, #0F766E); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(2, 132, 199, 0.45); border: 3px solid white;">
@@ -122,7 +150,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             </div>
             ${
               m.subLabel
-                ? `<div style="background: white; color: #0F172A; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); margin-top: 2px; border: 1px solid #E2E8F0;">${m.subLabel}</div>`
+                ? `<div style="background: white; color: #0F172A; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); margin-top: 2px; border: 1px solid #E2E8F0; white-space: nowrap;">${m.subLabel}</div>`
                 : ''
             }
           </div>
@@ -133,7 +161,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             <div style="background: #047857; color: white; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(4, 120, 87, 0.35); border: 2.5px solid white;">
               <span style="font-size: 16px;">⛲</span>
             </div>
-            <div style="background: white; color: #065F46; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); margin-top: 2px; border: 1px solid #A7F3D0;">PMC Source</div>
+            <div style="background: white; color: #065F46; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); margin-top: 2px; border: 1px solid #A7F3D0; white-space: nowrap;">PMC Source</div>
           </div>
         `;
       } else if (m.type === 'delivery') {
@@ -142,7 +170,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
             <div style="background: #E11D48; color: white; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(225, 29, 72, 0.35); border: 2.5px solid white;">
               <span style="font-size: 17px;">📍</span>
             </div>
-            <div style="background: white; color: #9F1239; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); margin-top: 2px; border: 1px solid #FECDD3;">Delivery</div>
+            <div style="background: white; color: #9F1239; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15); margin-top: 2px; border: 1px solid #FECDD3; white-space: nowrap;">Delivery</div>
           </div>
         `;
       } else if (m.type === 'hub') {
@@ -162,31 +190,48 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       const customIcon = L.divIcon({
         className: 'custom-map-icon',
         html: iconHtml,
-        iconSize: [44, 52],
-        iconAnchor: [22, 26],
+        iconSize: [54, 62],
+        iconAnchor: [27, 31],
       });
 
-      const marker = L.marker([m.lat, m.lng], { icon: customIcon });
-      if (m.popupContent || m.title) {
-        marker.bindPopup(`
-          <div style="font-family: sans-serif; font-size: 13px; line-height: 1.4; padding: 2px;">
-            <div style="font-weight: 800; color: #0A2540; font-size: 13px;">${m.title}</div>
-            ${m.popupContent ? `<div style="color: #475569; margin-top: 4px; font-size: 11px;">${m.popupContent}</div>` : ''}
-          </div>
-        `);
+      const existingMarker = markerInstancesRef.current[m.id];
+      if (existingMarker) {
+        existingMarker.setLatLng([m.lat, m.lng]);
+        existingMarker.setIcon(customIcon);
+        if (m.popupContent || m.title) {
+          existingMarker.setPopupContent(`
+            <div style="font-family: sans-serif; font-size: 13px; line-height: 1.4; padding: 2px;">
+              <div style="font-weight: 800; color: #0A2540; font-size: 13px;">${m.title}</div>
+              ${m.popupContent ? `<div style="color: #475569; margin-top: 4px; font-size: 11px;">${m.popupContent}</div>` : ''}
+            </div>
+          `);
+        }
+      } else {
+        const marker = L.marker([m.lat, m.lng], {
+          icon: customIcon,
+          zIndexOffset: m.type === 'truck' ? 500 : 100,
+        });
+        if (m.popupContent || m.title) {
+          marker.bindPopup(`
+            <div style="font-family: sans-serif; font-size: 13px; line-height: 1.4; padding: 2px;">
+              <div style="font-weight: 800; color: #0A2540; font-size: 13px;">${m.title}</div>
+              ${m.popupContent ? `<div style="color: #475569; margin-top: 4px; font-size: 11px;">${m.popupContent}</div>` : ''}
+            </div>
+          `);
+        }
+        marker.addTo(markersGroupRef.current!);
+        markerInstancesRef.current[m.id] = marker;
       }
-      marker.addTo(markersGroupRef.current!);
     });
 
-    // Auto fit bounds if requested and markers exist
     if (autoFitBounds && markers.length > 1 && !initialFitDoneRef.current) {
       const bounds = L.latLngBounds(markers.map((m) => [m.lat, m.lng]));
-      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      mapInstanceRef.current.fitBounds(bounds, { padding: [45, 45], maxZoom: 14 });
       initialFitDoneRef.current = true;
     }
   }, [markers, autoFitBounds]);
 
-  // Update route polylines (casing + animated dashed line)
+  // Update route polylines
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
@@ -198,28 +243,55 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
       polylineRef.current.remove();
       polylineRef.current = null;
     }
+    if (traveledRef.current) {
+      traveledRef.current.remove();
+      traveledRef.current = null;
+    }
 
     if (routePolyline && routePolyline.length > 1) {
-      // Background road casing
       routeBgRef.current = L.polyline(routePolyline, {
         color: '#0369A1',
         weight: 7,
-        opacity: 0.35,
+        opacity: 0.25,
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(mapInstanceRef.current);
 
-      // Main active route path
       polylineRef.current = L.polyline(routePolyline, {
         color: '#0284C7',
         weight: 4,
-        opacity: 0.95,
-        dashArray: '10, 8',
+        opacity: 0.85,
+        dashArray: '8, 8',
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(mapInstanceRef.current);
     }
-  }, [routePolyline]);
 
-  return <div ref={mapContainerRef} className={`max-w-full relative ${className}`} />;
+    if (traveledPolyline && traveledPolyline.length > 1) {
+      traveledRef.current = L.polyline(traveledPolyline, {
+        color: '#0D9488',
+        weight: 5,
+        opacity: 0.95,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(mapInstanceRef.current);
+    }
+  }, [routePolyline, traveledPolyline]);
+
+  return (
+    <div className={`relative w-full overflow-hidden bg-[#E5F1F6] ${className}`}>
+      {/* Fallback subtle Pune corridor topographic grid when offline/tiles throttled */}
+      {tilesFailed && (
+        <div
+          className="absolute inset-0 pointer-events-none opacity-60"
+          style={{
+            backgroundImage:
+              'linear-gradient(to right, rgba(14,116,144,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(14,116,144,0.1) 1px, transparent 1px)',
+            backgroundSize: '32px 32px',
+          }}
+        />
+      )}
+      <div ref={mapContainerRef} className="w-full h-full relative z-0" />
+    </div>
+  );
 };

@@ -3,8 +3,10 @@ import { useAppStore } from '../../store/useAppStore';
 import { db } from '../../services/db';
 import { eventBus } from '../../services/eventBus';
 import { mockApi } from '../../services/mockApi';
+import { simulationEngine } from '../../services/simulation';
+import { calculateDistanceMeters } from '../../services/qr';
 import { formatINR } from '../../services/pricing';
-import { LeafletMap } from '../../components/common/LeafletMap';
+import { GoogleTankerMap } from '../../components/common/GoogleTankerMap';
 import { StatusStepper } from '../../components/common/StatusStepper';
 import { PriceBreakdown } from '../../components/common/PriceBreakdown';
 import { ReceiptModal } from '../../components/common/ReceiptModal';
@@ -57,6 +59,9 @@ import {
   ThumbsUp,
   Heart,
   Droplet,
+  Crosshair,
+  FastForward,
+  RotateCcw,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
@@ -123,6 +128,12 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
   const [poolMyShareL, setPoolMyShareL] = useState(1500);
   const [poolDropPointLabel, setPoolDropPointLabel] = useState('Near Pancard Club Road, Baner');
 
+  // Live Radar Controls State
+  const [simSpeed, setSimSpeed] = useState<1 | 10 | 60>(() => simulationEngine.getConfig().timeSpeed);
+  const [followTanker, setFollowTanker] = useState<boolean>(true);
+  const [isVerifyingPod, setIsVerifyingPod] = useState<boolean>(false);
+  const [isDispatchingLive, setIsDispatchingLive] = useState<boolean>(false);
+
   // Refresh data from db
   const refreshData = () => {
     const data = db.getData();
@@ -162,12 +173,172 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
     };
   }, [currentUser.id]);
 
+  // Select the live tracked booking: user's active booking -> user's latest booking -> live Pune corridor demo booking
+  const userLatestBooking = allBookings.find(
+    (b) => b.customerId === currentUser.id && b.status !== 'CANCELLED'
+  );
+  const trackedBooking: Booking | undefined =
+    activeBooking ||
+    userLatestBooking ||
+    allBookings.find((b) => b.id === 'BK-2026-9041') ||
+    allBookings[0];
+
+  // Live telemetry calculations for the tracked tanker
+  const dbSnapshot = db.getData();
+  const trackedDriver = dbSnapshot.drivers.find((d) => d.id === trackedBooking?.driverId);
+  const trackedSource = dbSnapshot.waterSources.find((s) => s.id === 'src-1') || dbSnapshot.waterSources[0];
+  const sourceLat = trackedSource?.lat || 18.4985;
+  const sourceLng = trackedSource?.lng || 73.8475;
+  const destLat = trackedBooking?.lat || 18.5592;
+  const destLng = trackedBooking?.lng || 73.7868;
+
+  const isDelivered =
+    trackedBooking?.status === 'DELIVERED' || trackedBooking?.status === 'SETTLED';
+  const isArrived = trackedBooking?.status === 'ARRIVED';
+  const isPreTransit =
+    trackedBooking?.status === 'REQUESTED' ||
+    trackedBooking?.status === 'MATCHED' ||
+    trackedBooking?.status === 'ACCEPTED' ||
+    trackedBooking?.status === 'FILLING';
+
+  const truckLat =
+    isDelivered || isArrived
+      ? destLat
+      : isPreTransit
+      ? sourceLat
+      : trackedBooking?.currentLat || 18.535;
+  const truckLng =
+    isDelivered || isArrived
+      ? destLng
+      : isPreTransit
+      ? sourceLng
+      : trackedBooking?.currentLng || 73.805;
+
+  const remainingDistM =
+    isDelivered || isArrived
+      ? 0
+      : calculateDistanceMeters(truckLat, truckLng, destLat, destLng);
+  const remainingDistKm = (remainingDistM / 1000).toFixed(1);
+  const totalCorridorDistM = Math.max(
+    1,
+    calculateDistanceMeters(sourceLat, sourceLng, destLat, destLng)
+  );
+  const transitProgressPct = isDelivered
+    ? 100
+    : isArrived
+    ? 95
+    : isPreTransit
+    ? 12
+    : Math.min(
+        92,
+        Math.max(18, Math.round(((totalCorridorDistM - remainingDistM) / totalCorridorDistM) * 100))
+      );
+
+  const traveledPolyline: [number, number][] =
+    isDelivered || isArrived
+      ? [
+          [sourceLat, sourceLng],
+          [18.515, 73.828],
+          [18.535, 73.808],
+          [destLat, destLng],
+        ]
+      : isPreTransit
+      ? [[sourceLat, sourceLng], [sourceLat, sourceLng]]
+      : [
+          [sourceLat, sourceLng],
+          [18.515, 73.828],
+          [truckLat, truckLng],
+        ];
+
+  const remainingPolyline: [number, number][] =
+    isDelivered || isArrived
+      ? []
+      : [
+          [truckLat, truckLng],
+          [destLat, destLng],
+        ];
+
+  const trackedStatusLabel = !trackedBooking
+    ? 'Ready to Dispatch'
+    : trackedBooking.status === 'REQUESTED'
+    ? 'Dispatch Requested'
+    : trackedBooking.status === 'MATCHED'
+    ? 'Tanker Assigned'
+    : trackedBooking.status === 'ACCEPTED'
+    ? 'Driver En Route to Source'
+    : trackedBooking.status === 'FILLING'
+    ? 'Filling at PMC Parvati'
+    : trackedBooking.status === 'EN_ROUTE'
+    ? `Arriving in ${trackedBooking.etaMin} min`
+    : trackedBooking.status === 'ARRIVED'
+    ? 'Arrived at Gate'
+    : 'Delivered & Escrow Released';
+
+  const handleSpeedChange = (speed: 1 | 10 | 60) => {
+    simulationEngine.setTimeSpeed(speed);
+    setSimSpeed(speed);
+  };
+
+  const handleVerifyPodAndDeliver = async () => {
+    if (!trackedBooking || trackedBooking.status !== 'ARRIVED') return;
+    setIsVerifyingPod(true);
+    try {
+      const payloadStr =
+        qrPayload?.payloadString ||
+        JSON.stringify(await mockApi.getPodQr(trackedBooking.id));
+      await mockApi.verifyPod({
+        bookingId: trackedBooking.id,
+        payloadString: payloadStr,
+        driverLat: trackedBooking.lat,
+        driverLng: trackedBooking.lng,
+        deliveredLitres: trackedBooking.volumeL,
+      });
+      setShowQrModal(false);
+      refreshData();
+    } finally {
+      setIsVerifyingPod(false);
+    }
+  };
+
+  const handleDispatchLiveTrip = async () => {
+    setIsDispatchingLive(true);
+    try {
+      const { price } = await mockApi.quoteBooking({
+        volumeL: 10000,
+        purpose: 'general',
+        slotType: 'express',
+        distanceKm: 4.5,
+        demandIndex: 1.0,
+      });
+      await mockApi.createBooking({
+        customerId: currentUser.id,
+        volumeL: 10000,
+        purpose: 'general',
+        slot: {
+          type: 'express',
+          start: 'Now',
+          end: '45 mins',
+          label: 'Express Live Dispatch',
+        },
+        price,
+        vendorId: 'vendor-1',
+        driverId: 'driver-1',
+        vehicleId: 'veh-1',
+        etaMin: 22,
+      });
+      setFollowTanker(true);
+      refreshData();
+    } finally {
+      setIsDispatchingLive(false);
+    }
+  };
+
   // Handle Dynamic QR generation & 30-sec refresh when Arrived
   useEffect(() => {
-    if (activeBooking?.status === 'ARRIVED') {
+    if (trackedBooking?.status === 'ARRIVED') {
       let countdown = 30;
       const generateQr = async () => {
-        const payload = await mockApi.getPodQr(activeBooking.id);
+        const payload = await mockApi.getPodQr(trackedBooking.id);
         setQrPayload({
           payloadString: JSON.stringify(payload),
           secondsLeft: countdown,
@@ -189,7 +360,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
     } else {
       setQrPayload(null);
     }
-  }, [activeBooking?.status, activeBooking?.id]);
+  }, [trackedBooking?.status, trackedBooking?.id]);
 
   // Fetch Fair-Price Quote
   const handleGetQuote = async () => {
@@ -635,11 +806,19 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
           {/* RIGHT COLUMN: Live Tracking Card + Mascot Card + Quick Act */}
           {/* ========================================================== */}
           <div className="lg:col-span-5 xl:col-span-5 space-y-5">
-            {/* 1. LIVE TANKER TRACKING CARD (With Mini Route Map & Stepper) */}
+            {/* 1. LIVE TANKER TRACKING CARD (Live Map + Dynamic Stepper) */}
             <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-600 animate-ping" />
+                  <div
+                    className={`w-2.5 h-2.5 rounded-full ${
+                      isDelivered
+                        ? 'bg-emerald-500'
+                        : isArrived
+                        ? 'bg-emerald-500 animate-ping'
+                        : 'bg-cyan-600 animate-ping'
+                    }`}
+                  />
                   <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-1.5">
                     <MapPin size={16} className="text-cyan-700" />
                     <span>Live Tanker Tracking</span>
@@ -649,56 +828,99 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                   onClick={() => setActiveTab('radar')}
                   className="text-xs font-bold text-cyan-700 hover:text-cyan-800 flex items-center gap-0.5 cursor-pointer hover:underline"
                 >
-                  <span>View on Map</span>
+                  <span>Open Live Radar</span>
                   <ArrowRight size={13} />
                 </button>
               </div>
 
-              {/* Mini Interactive Leaflet Map Preview with ETA Badge */}
-              <div className="relative rounded-2xl overflow-hidden border border-slate-200/80 shadow-inner">
-                <LeafletMap
-                  center={[18.545, 73.798]}
-                  zoom={12}
-                  className="h-36 sm:h-40 w-full"
+              {/* Live Interactive Google Maps Preview with Live ETA Badge */}
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200/80 shadow-inner h-44 sm:h-48">
+                <GoogleTankerMap
+                  center={[truckLat, truckLng]}
+                  zoom={13}
+                  followTruck={!isDelivered && !isArrived}
+                  autoFitBounds={isDelivered || isArrived}
+                  origin={{ lat: sourceLat, lng: sourceLng }}
+                  destination={{ lat: destLat, lng: destLng }}
+                  transitProgressPct={transitProgressPct}
+                  isDelivered={isDelivered}
+                  isArrived={isArrived}
+                  className="h-full w-full"
                   markers={[
                     {
-                      id: 'tanker-1',
-                      lat: 18.528,
-                      lng: 73.815,
-                      title: 'Live Water Tanker MH-12 AB 4821',
+                      id: 'source-home',
+                      lat: sourceLat,
+                      lng: sourceLng,
+                      title: trackedSource?.name || 'PMC Parvati Water Works',
+                      type: 'source',
+                    },
+                    {
+                      id: 'tanker-home',
+                      lat: truckLat,
+                      lng: truckLng,
+                      title: `Live Water Tanker MH-12 AB 4821`,
                       type: 'truck',
-                      etaMin: 25,
+                      etaMin: isDelivered || isArrived ? 0 : trackedBooking?.etaMin || 22,
                       subLabel: 'MH-12 AB 4821',
                     },
                     {
-                      id: 'delivery-1',
-                      lat: 18.552,
-                      lng: 73.788,
-                      title: 'Delivery Point (Baner)',
+                      id: 'delivery-home',
+                      lat: destLat,
+                      lng: destLng,
+                      title: trackedBooking?.address?.label || 'Delivery Point (Baner)',
                       type: 'delivery',
                     },
                   ]}
-                  routePolyline={[
-                    [18.4985, 73.8475],
-                    [18.515, 73.825],
-                    [18.528, 73.815],
-                    [18.552, 73.788],
-                  ]}
+                  traveledPolyline={traveledPolyline}
+                  routePolyline={remainingPolyline}
                 />
 
-                {/* Overlaid ETA Badge */}
-                <div className="absolute top-3 right-3 z-10 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-slate-200 text-xs font-black text-slate-900 flex items-center gap-1.5">
-                  <Clock size={13} className="text-cyan-600 animate-pulse" />
-                  <span>Arriving in 25 min</span>
+                {/* Overlaid Live Status Badge */}
+                <div
+                  className={`absolute top-3 right-3 z-[500] backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border text-xs font-black flex items-center gap-1.5 ${
+                    isDelivered
+                      ? 'bg-emerald-50/95 border-emerald-300 text-emerald-900'
+                      : isArrived
+                      ? 'bg-emerald-600/95 border-emerald-400 text-white'
+                      : 'bg-white/95 border-slate-200 text-slate-900'
+                  }`}
+                >
+                  {isDelivered ? (
+                    <CheckCircle2 size={13} className="text-emerald-600" />
+                  ) : (
+                    <Clock size={13} className={isArrived ? 'text-white animate-pulse' : 'text-cyan-600 animate-pulse'} />
+                  )}
+                  <span>{trackedStatusLabel}</span>
                 </div>
+
+                {/* Live distance chip */}
+                {!isDelivered && (
+                  <div className="absolute bottom-2.5 left-2.5 z-[500] bg-slate-900/85 backdrop-blur-md text-white px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1.5 shadow-sm">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>{isArrived ? 'At your gate (0.0 km)' : `${remainingDistKm} km away`}</span>
+                  </div>
+                )}
               </div>
 
-              {/* 3-Step Horizontal Stepper: On the Way -> Near You -> Delivered */}
+              {/* Dynamic 3-Step Horizontal Stepper: On the Way -> Near You -> Delivered */}
               <div className="pt-1">
                 <div className="relative flex items-center justify-between">
                   {/* Connecting Line */}
                   <div className="absolute top-1/2 left-6 right-6 -translate-y-1/2 h-1 bg-slate-100 -z-0">
-                    <div className="w-1/2 h-full bg-cyan-500 rounded-full" />
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        isDelivered ? 'bg-emerald-500' : 'bg-cyan-500'
+                      }`}
+                      style={{
+                        width: isDelivered
+                          ? '100%'
+                          : isArrived
+                          ? '75%'
+                          : remainingDistM <= 2000
+                          ? '55%'
+                          : '25%',
+                      }}
+                    />
                   </div>
 
                   {/* Step 1: On the Way */}
@@ -711,41 +933,90 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
 
                   {/* Step 2: Near You */}
                   <div className="relative z-10 flex flex-col items-center">
-                    <div className="w-8 h-8 rounded-full bg-white border-2 border-cyan-400 text-cyan-700 flex items-center justify-center shadow-xs">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center shadow-xs transition-colors ${
+                        isDelivered || isArrived || remainingDistM <= 2000
+                          ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/25'
+                          : 'bg-white border-2 border-cyan-400 text-cyan-700'
+                      }`}
+                    >
                       <Check size={14} className="stroke-[3]" />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-500 mt-1.5">Near You</span>
+                    <span className="text-[11px] font-bold text-slate-600 mt-1.5">
+                      {isArrived ? 'At Gate' : 'Near You'}
+                    </span>
                   </div>
 
                   {/* Step 3: Delivered */}
                   <div className="relative z-10 flex flex-col items-center">
-                    <div className="w-8 h-8 rounded-full bg-white border-2 border-slate-200 text-slate-300 flex items-center justify-center">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                        isDelivered
+                          ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                          : 'bg-white border-2 border-slate-200 text-slate-300'
+                      }`}
+                    >
                       <Home size={14} />
                     </div>
-                    <span className="text-[11px] font-bold text-slate-400 mt-1.5">Delivered</span>
+                    <span
+                      className={`text-[11px] font-bold mt-1.5 ${
+                        isDelivered ? 'text-emerald-700' : 'text-slate-400'
+                      }`}
+                    >
+                      Delivered
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Driver Footer Bar with Call Button */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              {/* Driver Footer Bar with Live Actions */}
+              <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
-                    R
+                    {(trackedDriver?.name || 'Santosh Jadhav').charAt(0)}
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 font-bold block">Driver</span>
-                    <span className="text-xs font-black text-slate-900">Rohit S.</span>
+                    <span className="text-[10px] text-slate-400 font-bold block">
+                      Driver • MH-12 AB 4821
+                    </span>
+                    <span className="text-xs font-black text-slate-900">
+                      {trackedDriver?.name || 'Santosh Jadhav'}
+                    </span>
                   </div>
                 </div>
 
-                <button
-                  onClick={() => setShowCallDriverModal(true)}
-                  className="px-3.5 py-1.5 rounded-full bg-sky-50 hover:bg-sky-100 text-cyan-800 border border-sky-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Phone size={13} className="text-cyan-700" />
-                  <span>Call</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {isArrived && (
+                    <button
+                      onClick={() => setShowQrModal(true)}
+                      className="px-3 py-1.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold flex items-center gap-1.5 shadow-sm animate-pulse cursor-pointer"
+                    >
+                      <QrCode size={13} />
+                      <span>Show QR</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      if (trackedBooking) {
+                        setTrackingBooking(trackedBooking);
+                        setShowTrackingModal(true);
+                      } else {
+                        setActiveTab('radar');
+                      }
+                    }}
+                    className="px-3 py-1.5 rounded-full bg-cyan-50 hover:bg-cyan-100 text-cyan-900 border border-cyan-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Navigation size={12} className="text-cyan-700" />
+                    <span>Live Map</span>
+                  </button>
+                  <button
+                    onClick={() => setShowCallDriverModal(true)}
+                    className="px-3 py-1.5 rounded-full bg-sky-50 hover:bg-sky-100 text-cyan-800 border border-sky-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Phone size={12} className="text-cyan-700" />
+                    <span>Call</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1105,72 +1376,389 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
       )}
 
       {/* ============================================================== */}
-      {/* 4. SUB-VIEW: LIVE TANKER RADAR (CORRIDOR MAP)                  */}
+      {/* 4. SUB-VIEW: LIVE TANKER RADAR (REAL-TIME MAP UNTIL DELIVERED) */}
       {/* ============================================================== */}
       {activeTab === 'radar' && (
-        <div className="bg-white rounded-3xl p-5 sm:p-7 border border-sky-100 shadow-sm space-y-4 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div className="bg-white rounded-3xl p-4 sm:p-7 border border-sky-100 shadow-sm space-y-5 animate-in fade-in duration-200">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-cyan-600 text-white flex items-center justify-center font-black">
-                <Navigation size={20} />
+              <div
+                className={`w-10 h-10 rounded-2xl text-white flex items-center justify-center font-black shadow-sm ${
+                  isDelivered ? 'bg-emerald-600' : 'bg-cyan-600'
+                }`}
+              >
+                <Navigation size={20} className={!isDelivered ? 'animate-pulse' : ''} />
               </div>
               <div>
-                <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                  Pune Municipal Live Tanker Radar
-                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                    Pune Municipal Live Tanker Radar
+                  </h2>
+                  {trackedBooking && (
+                    <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded-lg bg-cyan-50 text-cyan-900 border border-cyan-200">
+                      {trackedBooking.id} • {trackedBooking.volumeL.toLocaleString('en-IN')} L
+                    </span>
+                  )}
+                </div>
                 <p className="text-xs text-slate-500">
-                  Real-time GPS telemetry from certified filling stations to Baner delivery point
+                  Real-time GPS tracking from {trackedSource?.name || 'PMC Parvati Station'} until doorstep delivery
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setActiveTab('home')}
-              className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer"
-            >
-              ← Back to Overview
-            </button>
+
+            <div className="flex items-center gap-2">
+              {trackedBooking && (
+                <button
+                  onClick={() => {
+                    setTrackingBooking(trackedBooking);
+                    setShowTrackingModal(true);
+                  }}
+                  className="text-xs font-bold text-cyan-800 bg-cyan-50 hover:bg-cyan-100 px-3 py-1.5 rounded-xl border border-cyan-200 cursor-pointer flex items-center gap-1"
+                >
+                  <ExternalLink size={13} />
+                  <span>Full Tracker</span>
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab('home')}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer"
+              >
+                ← Back
+              </button>
+            </div>
           </div>
 
-          <div className="relative rounded-2xl overflow-hidden border border-slate-200">
-            <LeafletMap
-              center={[18.535, 73.805]}
+          {/* Live Telemetry KPI & Speed Controls Strip */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-100">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Live Status
+              </span>
+              <span
+                className={`text-sm font-black block mt-0.5 ${
+                  isDelivered ? 'text-emerald-700' : isArrived ? 'text-emerald-600' : 'text-cyan-950'
+                }`}
+              >
+                {trackedStatusLabel}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-100">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Distance Remaining
+              </span>
+              <span className="text-sm font-black text-slate-900 block mt-0.5">
+                {isDelivered || isArrived ? '0.0 km (At Gate)' : `${remainingDistKm} km remaining`}
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-sky-50/70 border border-sky-100">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                Assigned Tanker & Driver
+              </span>
+              <span className="text-sm font-black text-slate-900 block mt-0.5 truncate">
+                {trackedDriver?.name || 'Santosh Jadhav'} • MH-12 AB 4821
+              </span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-900 text-white flex flex-col justify-between gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                Live Tracking Speed
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {([1, 10, 60] as const).map((sp) => (
+                  <button
+                    key={sp}
+                    onClick={() => handleSpeedChange(sp)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-black cursor-pointer transition-colors ${
+                      simSpeed === sp
+                        ? 'bg-cyan-500 text-slate-950'
+                        : 'bg-white/10 text-slate-200 hover:bg-white/20'
+                    }`}
+                  >
+                    {sp}x
+                  </button>
+                ))}
+                {!isDelivered && !isArrived && trackedBooking && (
+                  <button
+                    onClick={() => simulationEngine.triggerDriverArriveNow(trackedBooking.id)}
+                    className="ml-auto px-2 py-0.5 rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-[10px] font-black flex items-center gap-1 cursor-pointer"
+                    title="Fast-forward tanker directly to gate"
+                  >
+                    <FastForward size={11} />
+                    <span>Arrive Now</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Live Google Map Container */}
+          <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-inner h-[380px] sm:h-[460px] w-full bg-[#E5F1F6]">
+            <GoogleTankerMap
+              center={[truckLat, truckLng]}
               zoom={13}
-              className="h-96 sm:h-[450px] w-full"
+              followTruck={followTanker && !isDelivered}
+              autoFitBounds={isDelivered}
+              origin={{ lat: sourceLat, lng: sourceLng }}
+              destination={{ lat: destLat, lng: destLng }}
+              transitProgressPct={transitProgressPct}
+              isDelivered={isDelivered}
+              isArrived={isArrived}
+              showMapControls={true}
+              className="h-full w-full"
               markers={[
                 {
-                  id: 'truck-main',
-                  lat: 18.535,
-                  lng: 73.805,
-                  title: 'Tanker MH-12 AB 4821',
-                  type: 'truck',
-                  etaMin: 22,
-                  subLabel: 'MH-12 AB 4821',
-                  popupContent: 'Driver: Santosh Jadhav • PMC Parvati Source Verified • Speed: 28 km/h',
+                  id: 'source-pune',
+                  lat: sourceLat,
+                  lng: sourceLng,
+                  title: trackedSource?.name || 'PMC Parvati Water Works',
+                  type: 'source',
+                  popupContent: `PMC Licensed Water Filling Station • Cert ${
+                    trackedSource?.certificateNo || 'PMC-WTR-2026-PARV-094'
+                  }`,
                 },
                 {
-                  id: 'source-pune',
-                  lat: 18.4985,
-                  lng: 73.8475,
-                  title: 'PMC Parvati Water Works',
-                  type: 'source',
-                  popupContent: 'PMC Licensed Water Filling Station',
+                  id: 'truck-main',
+                  lat: truckLat,
+                  lng: truckLng,
+                  title: `Tanker MH-12 AB 4821 (${trackedDriver?.name || 'Santosh Jadhav'})`,
+                  type: 'truck',
+                  etaMin: isDelivered || isArrived ? 0 : trackedBooking?.etaMin || 22,
+                  subLabel: 'MH-12 AB 4821',
+                  popupContent: isDelivered
+                    ? 'Delivered & QR Proof Verified'
+                    : isArrived
+                    ? 'Arrived at your delivery gate — Ready for QR scan'
+                    : `Driver: ${trackedDriver?.name || 'Santosh Jadhav'} • ETA: ${
+                        trackedBooking?.etaMin || 22
+                      } min • ${remainingDistKm} km away`,
                 },
                 {
                   id: 'dest-baner',
-                  lat: 18.552,
-                  lng: 73.788,
-                  title: 'Baner Sector 9 Delivery',
+                  lat: destLat,
+                  lng: destLng,
+                  title: trackedBooking?.address?.label || 'Baner Sector 9 Delivery',
                   type: 'delivery',
-                  popupContent: 'Your Verified Delivery Address',
+                  popupContent: trackedBooking?.address?.line || 'Your Verified Delivery Address',
                 },
               ]}
-              routePolyline={[
-                [18.4985, 73.8475],
-                [18.515, 73.825],
-                [18.535, 73.805],
-                [18.552, 73.788],
-              ]}
+              traveledPolyline={traveledPolyline}
+              routePolyline={remainingPolyline}
             />
+
+            {/* Floating Follow Tanker / Center Controls */}
+            <div className="absolute top-3 right-3 z-[500] flex flex-col gap-2">
+              <button
+                onClick={() => setFollowTanker((prev) => !prev)}
+                className={`px-3 py-2 rounded-xl text-xs font-extrabold shadow-lg backdrop-blur-md flex items-center gap-1.5 cursor-pointer transition-all ${
+                  followTanker
+                    ? 'bg-cyan-600 text-white border border-cyan-400'
+                    : 'bg-white/95 text-slate-800 border border-slate-200 hover:bg-white'
+                }`}
+              >
+                <Crosshair size={14} />
+                <span>{followTanker ? 'Following Tanker' : 'Follow Tanker'}</span>
+              </button>
+            </div>
+
+            {/* Bottom Live Telemetry Strip */}
+            <div className="absolute bottom-3 left-3 right-3 z-[500]">
+              <div className="bg-slate-900/90 backdrop-blur-md text-white rounded-2xl p-3.5 shadow-xl border border-cyan-500/30 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center gap-2 font-extrabold">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isDelivered ? 'bg-emerald-400' : 'bg-cyan-400 animate-ping'
+                      }`}
+                    />
+                    <span>
+                      {isDelivered
+                        ? 'Delivery Completed & Escrow Released'
+                        : isArrived
+                        ? 'Tanker at Delivery Gate — Verify QR to Complete'
+                        : `In Transit • ${remainingDistKm} km to ${
+                            trackedBooking?.address?.label || 'Destination'
+                          }`}
+                    </span>
+                  </div>
+                  <span className="font-mono text-[11px] text-cyan-300 font-bold">
+                    {truckLat.toFixed(4)}°N, {truckLng.toFixed(4)}°E • {transitProgressPct}%
+                  </span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-700 ${
+                      isDelivered
+                        ? 'bg-emerald-500'
+                        : 'bg-gradient-to-r from-cyan-400 via-teal-400 to-emerald-400'
+                    }`}
+                    style={{ width: `${transitProgressPct}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Lifecycle Timeline & Delivery Verification Split */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            {/* Full 8-Stage Delivery Stepper */}
+            <div className="lg:col-span-6 bg-sky-50/40 rounded-2xl p-4 sm:p-5 border border-sky-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-black text-slate-900">Live Delivery Progress</h3>
+                <span className="text-[11px] font-bold text-cyan-800 bg-cyan-100 px-2.5 py-0.5 rounded-full">
+                  {trackedBooking?.status || 'EN_ROUTE'}
+                </span>
+              </div>
+              <StatusStepper
+                currentStatus={trackedBooking?.status || 'EN_ROUTE'}
+                timeline={trackedBooking?.timeline || []}
+              />
+            </div>
+
+            {/* Dynamic Delivery Action / PoD QR / Completion Card */}
+            <div className="lg:col-span-6 flex flex-col justify-between bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 space-y-4">
+              {isDelivered ? (
+                <div className="space-y-4 my-auto text-center py-4">
+                  <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-sm">
+                    <CheckCircle2 size={30} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">
+                      Water Tanker Delivered Successfully!
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {(trackedBooking?.deliveredConfirmedL || trackedBooking?.volumeL || 10000).toLocaleString(
+                        'en-IN'
+                      )}{' '}
+                      L confirmed via cryptographic QR Proof-of-Delivery. Escrow payment released cleanly.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-2 pt-2">
+                    {trackedBooking && (
+                      <button
+                        onClick={() => setShowReceiptBooking(trackedBooking)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-800 font-bold text-xs cursor-pointer flex items-center gap-1.5"
+                      >
+                        <FileText size={14} />
+                        <span>View GST Receipt</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleDispatchLiveTrip}
+                      disabled={isDispatchingLive}
+                      className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-black text-xs shadow-sm cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
+                    >
+                      <RotateCcw size={14} />
+                      <span>
+                        {isDispatchingLive ? 'Dispatching...' : 'Dispatch Another Live Tanker'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ) : isArrived ? (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-sm font-black text-emerald-800 flex items-center gap-1.5">
+                        <QrCode size={16} />
+                        <span>Tanker Arrived — Show Delivery QR</span>
+                      </h3>
+                      <p className="text-[11px] text-slate-500">
+                        Rotates every 30s with geofence check to confirm exact water volume before escrow payout.
+                      </p>
+                    </div>
+                    {qrPayload && (
+                      <span className="text-[11px] font-mono font-black px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {qrPayload.secondsLeft}s
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+                    <div className="p-3 bg-white rounded-2xl shadow-sm border border-emerald-100 shrink-0">
+                      <QRCodeSVG
+                        value={qrPayload?.payloadString || trackedBooking?.id || 'AQUAFLOW'}
+                        size={128}
+                      />
+                    </div>
+                    <div className="space-y-2.5 text-xs">
+                      <div className="font-bold text-slate-900">
+                        Ready for {trackedDriver?.name || 'Santosh Jadhav'} to scan at your gate
+                      </div>
+                      <p className="text-[11px] text-slate-600">
+                        Verified GPS geofence within 150m of {trackedBooking?.address?.label}. Confirm once hose connection begins.
+                      </p>
+                      <button
+                        onClick={handleVerifyPodAndDeliver}
+                        disabled={isVerifyingPod}
+                        className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md shadow-emerald-600/20 cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>
+                          {isVerifyingPod
+                            ? 'Verifying Cryptographic PoD...'
+                            : 'Complete Driver QR Scan & Mark Delivered'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                      <ShieldCheck size={16} className="text-cyan-700" />
+                      <span>Escrow & Corridor Telemetry</span>
+                    </h3>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Source Verified
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 text-xs">
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <span className="text-slate-500 font-semibold">Filling Point</span>
+                      <span className="font-bold text-slate-900">
+                        {trackedSource?.name || 'PMC Parvati Station'}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <span className="text-slate-500 font-semibold">Destination</span>
+                      <span className="font-bold text-slate-900">
+                        {trackedBooking?.address?.label || 'Baner Sector 9'}
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between">
+                      <span className="text-slate-500 font-semibold">Escrow Protection</span>
+                      <span className="font-bold text-emerald-700">
+                        {trackedBooking ? formatINR(trackedBooking.price.total) : '₹1,050'} Held Safely
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-1 flex flex-wrap gap-2">
+                    {trackedBooking && (
+                      <button
+                        onClick={() => simulationEngine.triggerDriverArriveNow(trackedBooking.id)}
+                        className="flex-1 py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-black text-xs shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <FastForward size={14} />
+                        <span>Simulate Arrival at Gate</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowCallDriverModal(true)}
+                      className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Phone size={14} />
+                      <span>Call Driver</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -1445,9 +2033,13 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
               <Phone size={24} />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900">Calling Driver Rohit S.</h3>
+              <h3 className="text-sm font-black text-slate-900">
+                Calling Driver {trackedDriver?.name || 'Santosh Jadhav'}
+              </h3>
               <p className="text-xs text-slate-500 mt-0.5">Tanker MH-12 AB 4821</p>
-              <div className="mt-2 text-base font-mono font-black text-cyan-800">+91 98231 44210</div>
+              <div className="mt-2 text-base font-mono font-black text-cyan-800">
+                {trackedDriver?.phone || '+91 98231 44210'}
+              </div>
             </div>
             <p className="text-[11px] text-slate-400">
               For safety while driving, please keep calls brief.
@@ -1543,6 +2135,69 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Dynamic PoD QR Modal */}
+      {showQrModal && trackedBooking && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-emerald-100 space-y-4 text-center animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
+                <QrCode className="w-5 h-5 text-emerald-600" />
+                <span>Proof of Delivery QR</span>
+              </div>
+              <button
+                onClick={() => setShowQrModal(false)}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-200 flex flex-col items-center gap-2">
+              <div className="p-3 bg-white rounded-2xl shadow-sm">
+                <QRCodeSVG
+                  value={qrPayload?.payloadString || trackedBooking.id}
+                  size={176}
+                />
+              </div>
+              <span className="text-[11px] font-mono font-bold text-emerald-800">
+                Refreshes in {qrPayload?.secondsLeft || 30}s • Order {trackedBooking.id}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Show this QR code to driver <span className="font-bold">{trackedDriver?.name || 'Santosh Jadhav'}</span> at your gate to verify water delivery and release escrow.
+            </p>
+
+            {trackedBooking.status === 'ARRIVED' && (
+              <button
+                onClick={handleVerifyPodAndDeliver}
+                disabled={isVerifyingPod}
+                className="w-full py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs shadow-md cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-60"
+              >
+                <CheckCircle2 size={15} />
+                <span>{isVerifyingPod ? 'Verifying...' : 'Simulate Driver Scan & Mark Delivered'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Real-Time Tanker Tracker Modal */}
+      {showTrackingModal && trackingBooking && (
+        <RealtimeTankerTrackerModal
+          booking={allBookings.find((b) => b.id === trackingBooking.id) || trackingBooking}
+          onClose={() => setShowTrackingModal(false)}
+          onOpenQrModal={() => {
+            setShowTrackingModal(false);
+            setShowQrModal(true);
+          }}
+          onCancelBooking={async (bookingId) => {
+            await mockApi.cancelBooking(bookingId);
+            refreshData();
+          }}
+        />
       )}
 
       {/* Receipt Modal */}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Booking, WaterSource, Vendor, Driver } from '../../types';
-import { LeafletMap } from './LeafletMap';
+import { GoogleTankerMap } from './GoogleTankerMap';
 import { StatusStepper } from './StatusStepper';
 import { formatINR } from '../../services/pricing';
 import { calculateDistanceMeters } from '../../services/qr';
@@ -136,11 +136,17 @@ export const RealtimeTankerTrackerModal: React.FC<RealtimeTankerTrackerModalProp
 
         {/* Real-time Map Area */}
         <div className="relative shrink-0 w-full overflow-hidden transition-all duration-300">
-          <LeafletMap
+          <GoogleTankerMap
             center={mapCenter}
             zoom={zoomLevel}
             className={`${isExpanded ? 'h-80 sm:h-96' : 'h-60 sm:h-64'} w-full relative z-0`}
             followTruck={followTruck}
+            origin={{ lat: sourceLat, lng: sourceLng }}
+            destination={{ lat: destLat, lng: destLng }}
+            transitProgressPct={isArrived ? 100 : progressPct}
+            isArrived={isArrived}
+            isDelivered={booking.status === 'DELIVERED' || booking.status === 'SETTLED'}
+            showMapControls={true}
             markers={[
               {
                 id: 'source-point',
@@ -170,6 +176,10 @@ export const RealtimeTankerTrackerModal: React.FC<RealtimeTankerTrackerModalProp
                 type: 'delivery',
                 popupContent: `${booking.address.line} • 100% Escrow protected delivery point`,
               },
+            ]}
+            traveledPolyline={[
+              [sourceLat, sourceLng],
+              [currentTruckLat, currentTruckLng],
             ]}
             routePolyline={routePolyline}
           />
