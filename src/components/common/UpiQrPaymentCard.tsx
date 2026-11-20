@@ -43,7 +43,8 @@ export const UpiQrPaymentCard: React.FC<UpiQrPaymentCardProps> = ({
   const [simulatingStep, setSimulatingStep] = useState<'idle' | 'scanning' | 'verifying' | 'success'>('idle');
 
   // Amount in INR rupees
-  const amountRupees = (amountPaise / 100).toFixed(2);
+  const safeAmountPaise = Number.isFinite(amountPaise) ? amountPaise : 0;
+  const amountRupees = (safeAmountPaise / 100).toFixed(2);
   const upiVpa = 'aquaflow.pune.escrow@icici';
 
   // Construct official UPI Deep Link & QR URI standard (NPCI specification)

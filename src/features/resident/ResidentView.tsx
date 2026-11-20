@@ -5,14 +5,14 @@ import { eventBus } from '../../services/eventBus';
 import { mockApi } from '../../services/mockApi';
 import { simulationEngine } from '../../services/simulation';
 import { calculateDistanceMeters } from '../../services/qr';
-import { formatINR } from '../../services/pricing';
+import { formatINR, calculatePrice } from '../../services/pricing';
 import { GoogleTankerMap } from '../../components/common/GoogleTankerMap';
 import { StatusStepper } from '../../components/common/StatusStepper';
 import { PriceBreakdown } from '../../components/common/PriceBreakdown';
 import { ReceiptModal } from '../../components/common/ReceiptModal';
 import { RealtimeTankerTrackerModal } from '../../components/common/RealtimeTankerTrackerModal';
 import { UpiQrPaymentCard } from '../../components/common/UpiQrPaymentCard';
-import { Booking, Pool, ScheduleEvent, CrowdReport, Complaint } from '../../types';
+import { Booking, BookingPrice, Pool, ScheduleEvent, CrowdReport, Complaint } from '../../types';
 import { QRCodeSVG } from 'qrcode.react';
 import { generateWhatsAppShareLink } from '../../services/pooling';
 import { triageComplaintText } from '../../services/gemini';
@@ -114,7 +114,7 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
   const [bookVolume, setBookVolume] = useState<number>(10000);
   const [bookPurpose, setBookPurpose] = useState<'general' | 'drinking'>('general');
   const [bookSlotType, setBookSlotType] = useState<'express' | 'today' | 'scheduled'>('today');
-  const [bookQuote, setBookQuote] = useState<any>(null);
+  const [bookQuote, setBookQuote] = useState<BookingPrice | null>(null);
   const [matchingVendors, setMatchingVendors] = useState<any[]>([]);
   const [selectedVendorIdx, setSelectedVendorIdx] = useState<number>(0);
   const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
@@ -364,14 +364,14 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
 
   // Fetch Fair-Price Quote
   const handleGetQuote = async () => {
-    const quote = await mockApi.quoteBooking({
+    const { price } = await mockApi.quoteBooking({
       volumeL: bookVolume,
       purpose: bookPurpose,
       slotType: bookSlotType,
       distanceKm: 4.5,
       demandIndex: 1.0,
     });
-    setBookQuote(quote);
+    setBookQuote(price);
 
     const matches = await mockApi.getMatchingVendors(bookVolume, 18.552, 73.788);
     setMatchingVendors(matches);
@@ -392,9 +392,14 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
         type: bookSlotType,
         start: '10:00 AM',
         end: '12:00 PM',
-        label: bookSlotType === 'express' ? 'Express (<2 hrs)' : 'Today Standard',
+        label:
+          bookSlotType === 'express'
+            ? 'Express (<2 hrs)'
+            : bookSlotType === 'scheduled'
+            ? 'Tomorrow Morning (Off-Peak)'
+            : 'Today Standard',
       },
-      price: bookQuote.price,
+      price: bookQuote,
       vendorId: matchedVendor?.vendor.id || 'vendor-1',
       driverId: matchedVendor?.driver.id || 'driver-1',
       vehicleId: matchedVendor?.vehicle.id || 'veh-1',
@@ -1196,22 +1201,34 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                   Select Water Volume
                 </label>
                 <div className="grid grid-cols-3 gap-3">
-                  {[5000, 10000, 20000].map((vol) => (
-                    <button
-                      key={vol}
-                      onClick={() => setBookVolume(vol)}
-                      className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
-                        bookVolume === vol
-                          ? 'border-cyan-500 bg-cyan-50/80 text-cyan-950 font-black shadow-xs'
-                          : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-bold'
-                      }`}
-                    >
-                      <span className="text-base block">{vol.toLocaleString()} L</span>
-                      <span className="text-[10px] text-slate-400">
-                        {vol === 5000 ? 'Small Household' : vol === 10000 ? 'Standard Tanker' : 'Society Tanker'}
-                      </span>
-                    </button>
-                  ))}
+                  {[5000, 10000, 20000].map((vol) => {
+                    const estPrice = calculatePrice({
+                      volumeL: vol,
+                      purpose: bookPurpose,
+                      slotType: bookSlotType,
+                      distanceKm: 4.5,
+                      demandIndex: 1.0,
+                    });
+                    return (
+                      <button
+                        key={vol}
+                        onClick={() => setBookVolume(vol)}
+                        className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer ${
+                          bookVolume === vol
+                            ? 'border-cyan-500 bg-cyan-50/80 text-cyan-950 font-black shadow-xs'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-bold'
+                        }`}
+                      >
+                        <span className="text-base block">{vol.toLocaleString()} L</span>
+                        <span className="text-[10px] text-slate-400 block">
+                          {vol === 5000 ? 'Small Household' : vol === 10000 ? 'Standard Tanker' : 'Society Tanker'}
+                        </span>
+                        <span className="text-xs font-black text-cyan-700 mt-1.5 inline-block">
+                          ~{formatINR(estPrice.total)}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1229,7 +1246,8 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                     }`}
                   >
                     <span className="text-xs block font-extrabold">Domestic / General Water</span>
-                    <span className="text-[10px] text-slate-500">For washing, bathing & gardening</span>
+                    <span className="text-[10px] text-slate-500 block">For washing, bathing & gardening</span>
+                    <span className="text-[11px] font-black text-cyan-700 mt-1 block">₹0.09/L • +₹25/km transit</span>
                   </button>
                   <button
                     onClick={() => setBookPurpose('drinking')}
@@ -1240,7 +1258,8 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                     }`}
                   >
                     <span className="text-xs block font-extrabold">Potable / RO Certified</span>
-                    <span className="text-[10px] text-slate-500">PMC lab tested drinking water</span>
+                    <span className="text-[10px] text-slate-500 block">PMC lab tested drinking water</span>
+                    <span className="text-[11px] font-black text-cyan-700 mt-1 block">₹0.30/L • +₹25/km transit</span>
                   </button>
                 </div>
               </div>
@@ -1264,28 +1283,42 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                 </label>
                 <div className="space-y-2.5">
                   {[
-                    { id: 'express', title: 'Express Delivery (< 2 Hours)', desc: 'Emergency priority dispatch via nearest tanker' },
-                    { id: 'today', title: 'Today Standard (2:00 PM – 5:00 PM)', desc: 'Guaranteed afternoon delivery window' },
-                    { id: 'scheduled', title: 'Tomorrow Morning (7:00 AM – 10:00 AM)', desc: 'Pre-scheduled society filling slot' },
-                  ].map((s) => (
-                    <button
-                      key={s.id}
-                      onClick={() => setBookSlotType(s.id as any)}
-                      className={`w-full p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                        bookSlotType === s.id
-                          ? 'border-cyan-500 bg-cyan-50/80 text-cyan-950 font-black shadow-xs'
-                          : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-bold'
-                      }`}
-                    >
-                      <div>
-                        <span className="text-xs font-extrabold block">{s.title}</span>
-                        <span className="text-[10px] text-slate-500">{s.desc}</span>
-                      </div>
-                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${bookSlotType === s.id ? 'border-cyan-600 bg-cyan-600' : 'border-slate-300'}`}>
-                        {bookSlotType === s.id && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </div>
-                    </button>
-                  ))}
+                    { id: 'express' as const, title: 'Express Delivery (< 2 Hours)', desc: 'Emergency priority dispatch (+15% express fare)' },
+                    { id: 'today' as const, title: 'Today Standard (2:00 PM – 5:00 PM)', desc: 'Guaranteed afternoon delivery window (standard cap)' },
+                    { id: 'scheduled' as const, title: 'Tomorrow Morning (7:00 AM – 10:00 AM)', desc: 'Pre-scheduled morning slot (-5% off-peak discount)' },
+                  ].map((s) => {
+                    const slotEstimate = calculatePrice({
+                      volumeL: bookVolume,
+                      purpose: bookPurpose,
+                      slotType: s.id,
+                      distanceKm: 4.5,
+                      demandIndex: 1.0,
+                    });
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => setBookSlotType(s.id)}
+                        className={`w-full p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                          bookSlotType === s.id
+                            ? 'border-cyan-500 bg-cyan-50/80 text-cyan-950 font-black shadow-xs'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-700 font-bold'
+                        }`}
+                      >
+                        <div>
+                          <span className="text-xs font-extrabold block">{s.title}</span>
+                          <span className="text-[10px] text-slate-500">{s.desc}</span>
+                        </div>
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <span className="text-xs font-black text-cyan-800 bg-white px-2.5 py-1 rounded-lg border border-cyan-100">
+                            {formatINR(slotEstimate.total)}
+                          </span>
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${bookSlotType === s.id ? 'border-cyan-600 bg-cyan-600' : 'border-slate-300'}`}>
+                            {bookSlotType === s.id && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1341,6 +1374,12 @@ export const ResidentView: React.FC<ResidentViewProps> = ({
                 onPaySuccess={handleConfirmBooking}
                 isSubmitting={isBookingSubmitting}
               />
+              <button
+                onClick={() => setBookStep(3)}
+                className="w-full py-2.5 rounded-2xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+              >
+                ← Back to Fare Breakdown
+              </button>
             </div>
           )}
 

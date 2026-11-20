@@ -33,11 +33,16 @@ export function calculatePrice(params: CalculatePriceParams): BookingPrice {
     ratePerKmPaise = DEFAULT_RATES.ratePerKmPaise,
   } = params;
 
+  // Safe numeric normalization
+  const safeVolumeL = Number.isFinite(volumeL) && volumeL > 0 ? volumeL : 10000;
+  const safeDistanceKm = Number.isFinite(distanceKm) && distanceKm >= 0 ? distanceKm : 4.5;
+  const safeDemandIndex = Number.isFinite(demandIndex) && demandIndex >= 0.5 ? demandIndex : 1.0;
+
   // Base price in paise
-  const base = Math.round(volumeL * ratePerLitrePaise);
+  const base = Math.round(safeVolumeL * ratePerLitrePaise);
 
   // Distance charge in paise (from water source to delivery)
-  const distance = Math.round(distanceKm * ratePerKmPaise);
+  const distance = Math.round(safeDistanceKm * ratePerKmPaise);
 
   // Subtotal
   const subtotal = base + distance;
@@ -46,13 +51,14 @@ export function calculatePrice(params: CalculatePriceParams): BookingPrice {
   let slotFactor = 1.0;
   if (slotType === 'express') {
     slotFactor = 1.15;
+  } else if (slotType === 'scheduled') {
+    slotFactor = 0.95;
   } else if (slotType === 'today') {
-    // Check if off-peak or standard
     slotFactor = 1.0;
   }
 
   // Demand factor: raw = clamp(1 + 0.5 * (demandIndex - 1), 1.0, 1.6)
-  const rawDemand = Math.min(1.6, Math.max(1.0, 1 + 0.5 * (demandIndex - 1)));
+  const rawDemand = Math.min(1.6, Math.max(1.0, 1 + 0.5 * (safeDemandIndex - 1)));
   // Applied: Fair-Price Cap at 1.25 maximum
   const appliedDemand = Math.min(rawDemand, 1.25);
 
@@ -74,7 +80,7 @@ export function calculatePrice(params: CalculatePriceParams): BookingPrice {
 
   // marketEstimate = subtotal * slotFactor * (1 + 0.8 * max(0, demandIndex - 1))
   const marketEstimate = Math.round(
-    subtotal * slotFactor * (1 + 0.8 * Math.max(0, demandIndex - 1))
+    subtotal * slotFactor * (1 + 0.8 * Math.max(0, safeDemandIndex - 1))
   );
 
   return {
@@ -98,6 +104,7 @@ export function calculateCommissionAndPayout(params: {
   driverIncentivePct?: number; // default 12%
 }) {
   const { totalPaise, orderType, vendorPlanTier, driverIncentivePct = 0.12 } = params;
+  const safeTotalPaise = Number.isFinite(totalPaise) ? totalPaise : 0;
 
   // Commission %: 8% B2C, 6% pool/society, 5% if Fleet Pro
   let commissionPct = 0.08;
@@ -107,8 +114,8 @@ export function calculateCommissionAndPayout(params: {
     commissionPct = 0.06;
   }
 
-  const commissionPaise = Math.round(totalPaise * commissionPct);
-  const vendorNetPaise = totalPaise - commissionPaise;
+  const commissionPaise = Math.round(safeTotalPaise * commissionPct);
+  const vendorNetPaise = safeTotalPaise - commissionPaise;
   const driverIncentivePaise = Math.round(vendorNetPaise * driverIncentivePct);
   const vendorFinalPaise = vendorNetPaise - driverIncentivePaise;
 
@@ -122,7 +129,8 @@ export function calculateCommissionAndPayout(params: {
 }
 
 export function formatINR(paise: number): string {
-  const rupees = paise / 100;
+  const safePaise = Number.isFinite(paise) ? paise : 0;
+  const rupees = safePaise / 100;
   return new Intl.NumberFormat('en-IN', {
     style: 'currency',
     currency: 'INR',

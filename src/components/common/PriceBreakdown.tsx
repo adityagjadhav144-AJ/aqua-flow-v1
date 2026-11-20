@@ -21,6 +21,18 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
 }) => {
   const { currentLanguage, t } = useAppStore();
 
+  const safeBase = Number.isFinite(price?.base) ? price.base : 0;
+  const safeDistance = Number.isFinite(price?.distance) ? price.distance : 0;
+  const safeSubtotal = Number.isFinite(price?.subtotal) ? price.subtotal : safeBase + safeDistance;
+  const safeSlotFactor = Number.isFinite(price?.slotFactor) ? price.slotFactor : 1.0;
+  const safeDemandFactor = Number.isFinite(price?.demandFactor) ? price.demandFactor : 1.0;
+  const safeFairCapSavings = Number.isFinite(price?.fairCapSavings) ? price.fairCapSavings : 0;
+  const safePoolDiscount = Number.isFinite(price?.poolDiscount) ? price.poolDiscount : 0;
+  const safeTotal = Number.isFinite(price?.total) ? price.total : safeSubtotal;
+  const safeMarketEstimate = Number.isFinite(price?.marketEstimate)
+    ? price.marketEstimate
+    : Math.round(safeTotal * 1.25);
+
   return (
     <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
       {/* Header */}
@@ -41,41 +53,44 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
       <div className="space-y-2 text-xs text-slate-600">
         <div className="flex justify-between items-center">
           <span>Base Water ({volumeL ? `${volumeL.toLocaleString('en-IN')} L` : 'Tanker volume'})</span>
-          <span className="font-semibold text-slate-800">{formatINR(price.base)}</span>
+          <span className="font-semibold text-slate-800">{formatINR(safeBase)}</span>
         </div>
 
         <div className="flex justify-between items-center">
           <span>Transit Distance Charge</span>
-          <span className="font-semibold text-slate-800">{formatINR(price.distance)}</span>
+          <span className="font-semibold text-slate-800">{formatINR(safeDistance)}</span>
         </div>
 
-        {price.slotFactor !== 1.0 && (
+        {safeSlotFactor !== 1.0 && (
           <div className="flex justify-between items-center text-amber-700">
-            <span>Slot Adjustment ({price.slotFactor > 1 ? 'Express +15%' : 'Off-peak -5%'})</span>
-            <span className="font-bold">{price.slotFactor > 1 ? '+' : ''}{((price.slotFactor - 1) * 100).toFixed(0)}%</span>
+            <span>Slot Adjustment ({safeSlotFactor > 1 ? 'Express +15%' : 'Off-peak -5%'})</span>
+            <span className="font-bold">
+              {safeSlotFactor > 1 ? '+' : ''}
+              {((safeSlotFactor - 1) * 100).toFixed(0)}%
+            </span>
           </div>
         )}
 
         {/* Fair Price Cap Savings Highlight */}
-        {price.fairCapSavings > 0 && (
+        {safeFairCapSavings > 0 && (
           <div className="flex items-center justify-between text-emerald-800 bg-emerald-50 px-3 py-2 rounded-xl font-medium border border-emerald-200">
             <span className="flex items-center gap-1.5">
               <Sparkles size={14} className="text-emerald-600" />
               <span className="font-bold">{t('fair_cap_savings')}:</span>
             </span>
-            <span className="font-black text-emerald-700">-{formatINR(price.fairCapSavings)}</span>
+            <span className="font-black text-emerald-700">-{formatINR(safeFairCapSavings)}</span>
           </div>
         )}
 
         {/* Community Pool Discount */}
-        {price.poolDiscount > 0 && (
+        {safePoolDiscount > 0 && (
           <div className="flex items-center justify-between text-cyan-800 bg-cyan-50 px-3 py-2 rounded-xl font-medium border border-cyan-200">
             <span className="flex items-center gap-1.5">
               <TrendingDown size={14} className="text-cyan-600" />
-              <span className="font-bold">{t('pool_discount')} ({(price.poolDiscount * 100).toFixed(0)}%):</span>
+              <span className="font-bold">{t('pool_discount')} ({(safePoolDiscount * 100).toFixed(0)}%):</span>
             </span>
             <span className="font-black text-cyan-700">
-              -{formatINR(Math.round(price.subtotal * price.slotFactor * price.demandFactor * price.poolDiscount))}
+              -{formatINR(Math.round(safeSubtotal * safeSlotFactor * safeDemandFactor * safePoolDiscount))}
             </span>
           </div>
         )}
@@ -89,7 +104,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
         </div>
         <div className="text-right">
           <div className="text-2xl font-black text-cyan-950 tracking-tight">
-            {formatINR(price.total)}
+            {formatINR(safeTotal)}
           </div>
         </div>
       </div>
@@ -101,7 +116,7 @@ export const PriceBreakdown: React.FC<PriceBreakdownProps> = ({
           <span>{currentLanguage === 'mr' ? 'बाजारातील अनियंत्रित सरासरी दर:' : 'Typical unregulated market rate:'}</span>
         </div>
         <span className="line-through font-bold text-slate-400">
-          {formatINR(price.marketEstimate)}
+          {formatINR(safeMarketEstimate)}
         </span>
       </div>
 
