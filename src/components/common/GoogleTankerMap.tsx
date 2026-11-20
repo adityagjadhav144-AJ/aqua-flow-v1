@@ -10,7 +10,8 @@ import {
   APILoadingStatus,
   useAdvancedMarkerRef,
 } from '@vis.gl/react-google-maps';
-import { Navigation, Layers, Activity, Maximize2 } from 'lucide-react';
+import { Layers, Activity, Maximize2 } from 'lucide-react';
+import { LeafletMap } from './LeafletMap';
 
 export interface GoogleMapMarker {
   id: string;
@@ -232,7 +233,6 @@ const MapOverlaysAndRouting: React.FC<{
   const routesLib = useMapsLibrary('routes');
   const mapsLib = useMapsLibrary('maps');
 
-  // Cache road polylines per "lat,lng->lat,lng" pair (avoiding Map identifier collision)
   const routeCacheRef = useRef<Record<string, LatLngPoint[]>>({});
   const [roadPath, setRoadPath] = useState<LatLngPoint[] | null>(null);
   const traveledPolyRef = useRef<google.maps.Polyline | null>(null);
@@ -406,7 +406,8 @@ const MapOverlaysAndRouting: React.FC<{
   );
 };
 
-export const GoogleTankerMap: React.FC<GoogleTankerMapProps> = ({
+// Inner Google Maps renderer (only mounted inside APIProvider when an API key exists)
+const GoogleMapWithProvider: React.FC<GoogleTankerMapProps & { onFallback: () => void }> = ({
   center,
   zoom = 13,
   markers = [],
@@ -421,12 +422,13 @@ export const GoogleTankerMap: React.FC<GoogleTankerMapProps> = ({
   autoFitBounds = false,
   followTruck = false,
   showMapControls = false,
+  onFallback,
 }) => {
-  const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
   const apiLoadingStatus = useApiLoadingStatus();
   const [mapTypeId, setMapTypeId] = useState<'roadmap' | 'hybrid'>('roadmap');
   const [showTraffic, setShowTraffic] = useState<boolean>(true);
   const [fitTrigger, setFitTrigger] = useState<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const defaultCenter = useMemo(
     () => ({ lat: center[0], lng: center[1] }),
@@ -437,41 +439,51 @@ export const GoogleTankerMap: React.FC<GoogleTankerMapProps> = ({
     setFitTrigger((n) => n + 1);
   }, []);
 
+  // Detect Google Maps runtime error dialog (e.g. RefererNotAllowedMapError on Vercel)
+  useEffect(() => {
+    if (
+      apiLoadingStatus === APILoadingStatus.AUTH_FAILURE ||
+      apiLoadingStatus === APILoadingStatus.FAILED
+    ) {
+      onFallback();
+      return;
+    }
+
+    const checkTimer = setInterval(() => {
+      if (containerRef.current?.querySelector('.gm-err-container')) {
+        onFallback();
+      }
+    }, 1000);
+
+    return () => clearInterval(checkTimer);
+  }, [apiLoadingStatus, onFallback]);
+
   if (
-    !apiKey ||
     apiLoadingStatus === APILoadingStatus.AUTH_FAILURE ||
     apiLoadingStatus === APILoadingStatus.FAILED
   ) {
-    const truck = markers.find((m) => m.type === 'truck');
     return (
-      <div
-        className={`relative w-full overflow-hidden bg-gradient-to-br from-sky-50 via-cyan-50 to-slate-100 flex flex-col items-center justify-center p-4 text-center ${className}`}
-      >
-        <div
-          className="absolute inset-0 opacity-45 pointer-events-none"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, rgba(2,132,199,0.12) 1px, transparent 1px), linear-gradient(to bottom, rgba(2,132,199,0.12) 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }}
-        />
-        <div className="relative z-10 max-w-xs space-y-2 bg-white/90 backdrop-blur-md p-4 rounded-2xl border border-sky-200 shadow-sm">
-          <Navigation className="w-7 h-7 text-cyan-600 mx-auto animate-pulse" />
-          <div className="text-xs font-black text-slate-900">
-            {truck ? truck.title : 'Live Tanker GPS Telemetry'}
-          </div>
-          <p className="text-[11px] text-slate-500">
-            {truck
-              ? `Live Coordinates: ${truck.lat.toFixed(4)}°N, ${truck.lng.toFixed(4)}°E`
-              : 'Unable to load Google Maps tiles right now.'}
-          </p>
-        </div>
-      </div>
+      <LeafletMap
+        center={center}
+        zoom={zoom}
+        markers={markers}
+        routePolyline={routePolyline}
+        traveledPolyline={traveledPolyline}
+        origin={origin}
+        destination={destination}
+        transitProgressPct={transitProgressPct}
+        isDelivered={isDelivered}
+        isArrived={isArrived}
+        className={className}
+        autoFitBounds={autoFitBounds}
+        followTruck={followTruck}
+        showMapControls={showMapControls}
+      />
     );
   }
 
   return (
-    <div className={`relative w-full overflow-hidden bg-[#E5F1F6] ${className}`}>
+    <div ref={containerRef} className={`relative w-full overflow-hidden bg-[#E5F1F6] ${className}`}>
       <GoogleMap
         defaultCenter={defaultCenter}
         defaultZoom={zoom}
@@ -554,4 +566,38 @@ export const GoogleTankerMap: React.FC<GoogleTankerMapProps> = ({
       )}
     </div>
   );
+};
+
+export const GoogleTankerMap: React.FC<GoogleTankerMapProps> = (props) => {
+  const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
+  const [forceFallback, setForceFallback] = useState(false);
+
+  useEffect(() => {
+    const handleFallback = () => setForceFallback(true);
+    window.addEventListener('gmp-map-fallback', handleFallback);
+    return () => window.removeEventListener('gmp-map-fallback', handleFallback);
+  }, []);
+
+  if (!apiKey || forceFallback) {
+    return (
+      <LeafletMap
+        center={props.center}
+        zoom={props.zoom}
+        markers={props.markers}
+        routePolyline={props.routePolyline}
+        traveledPolyline={props.traveledPolyline}
+        origin={props.origin}
+        destination={props.destination}
+        transitProgressPct={props.transitProgressPct}
+        isDelivered={props.isDelivered}
+        isArrived={props.isArrived}
+        className={props.className}
+        autoFitBounds={props.autoFitBounds}
+        followTruck={props.followTruck}
+        showMapControls={props.showMapControls}
+      />
+    );
+  }
+
+  return <GoogleMapWithProvider {...props} onFallback={() => setForceFallback(true)} />;
 };

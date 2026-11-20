@@ -98,14 +98,9 @@ export default function App() {
     );
   };
 
-  return (
-    <APIProvider
-      apiKey={GOOGLE_MAPS_API_KEY}
-      libraries={['marker', 'routes', 'maps']}
-      language="en"
-      region="IN"
-    >
-      {quotaExceeded && (
+  const appShell = (
+    <>
+      {GOOGLE_MAPS_API_KEY && quotaExceeded && (
         <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
           <span>
             Google Maps Platform quota reached. If you are the app owner, visit{' '}
@@ -122,6 +117,21 @@ export default function App() {
         </div>
       )}
       {renderContent()}
+    </>
+  );
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    return appShell;
+  }
+
+  return (
+    <APIProvider
+      apiKey={GOOGLE_MAPS_API_KEY}
+      libraries={['marker', 'routes', 'maps']}
+      language="en"
+      region="IN"
+    >
+      {appShell}
     </APIProvider>
   );
 }
