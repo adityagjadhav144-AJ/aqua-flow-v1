@@ -20,17 +20,41 @@ import {
   X,
   Plus,
   ArrowRight,
+  Gauge,
+  Activity,
+  Award,
+  Sparkles,
+  Truck,
+  Layers,
+  ChevronRight,
+  Droplet,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-export const SocietyView: React.FC = () => {
+interface SocietyViewProps {
+  activeNav?: string;
+  onNavChange?: (nav: string) => void;
+}
+
+export const SocietyView: React.FC<SocietyViewProps> = ({
+  activeNav: externalNav,
+  onNavChange: externalOnNavChange,
+}) => {
   const { currentUser, t } = useAppStore();
+  const [internalTab, setInternalTab] = useState<string>('home');
+  const activeTab = externalNav || internalTab;
+  const setActiveTab = (tab: string) => {
+    setInternalTab(tab);
+    if (externalOnNavChange) externalOnNavChange(tab);
+  };
+
   const [society, setSociety] = useState<Society | null>(null);
   const [gateLogs, setGateLogs] = useState<GateLog[]>([]);
   const [societyBookings, setSocietyBookings] = useState<Booking[]>([]);
   const [gateMode, setGateMode] = useState(false);
   const [pendingApproval, setPendingApproval] = useState<Booking | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [showAutoRefillModal, setShowAutoRefillModal] = useState(false);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -41,11 +65,11 @@ export const SocietyView: React.FC = () => {
     const data = db.getData();
     const soc = data.societies.find((s) => s.id === 'soc-1') || data.societies[0];
     setSociety(soc);
-    setGateLogs(data.gateLogs.filter((g) => g.societyId === soc.id));
-    setSocietyBookings(data.bookings.filter((b) => b.societyId === soc.id || b.customerId === soc.adminUserId));
+    setGateLogs(data.gateLogs.filter((g) => g.societyId === soc?.id));
+    setSocietyBookings(data.bookings.filter((b) => b.societyId === soc?.id || b.customerId === soc?.adminUserId));
 
     const pending = data.bookings.find(
-      (b) => b.societyId === soc.id && b.price.total > soc.approvalThresholdPaise && b.status === 'REQUESTED'
+      (b) => b.societyId === soc?.id && b.price.total > soc?.approvalThresholdPaise && b.status === 'REQUESTED'
     );
     setPendingApproval(pending || null);
   };
@@ -60,265 +84,401 @@ export const SocietyView: React.FC = () => {
     };
   }, []);
 
-  if (!society) return null;
+  const sumpCapacityL = 36000;
+  const sumpCurrentL = 24500;
+  const sumpPct = Math.round((sumpCurrentL / sumpCapacityL) * 100);
 
-  // Calculate daily per capita consumption vs 135 L/person benchmark (flats * 3.5 persons)
-  const totalResidents = Math.round(society.flats * 3.5); // 840 persons
-  const todayDeliveredL = 120000; // illustrative daily total
-  const perPersonPerDayL = Math.round(todayDeliveredL / totalResidents); // ~142 L
-  const isOverBenchmark = perPersonPerDayL > 150;
+  const handleApproveBooking = (bookingId: string) => {
+    mockApi.updateBookingStatus(bookingId, 'ACCEPTED');
+    showToast('Society Committee sign-off recorded! Tanker dispatched to vendor fleet.');
+    refreshData();
+  };
 
-  // --- GATE MODE (GUARD VIEW WITH LARGE TOUCH BUTTONS) ---
-  if (gateMode) {
-    return (
-      <div className="min-h-[85vh] bg-slate-900 text-white p-6 rounded-3xl flex flex-col justify-between select-none">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-4">
-          <div>
-            <span className="text-xs uppercase font-black text-cyan-400 tracking-wider">
-              Gate Guard Mode • {society.name}
-            </span>
-            <h1 className="text-xl font-black text-white mt-1">Expected Tankers Today</h1>
-          </div>
-          <button
-            onClick={() => setGateMode(false)}
-            className="py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl text-xs transition-colors cursor-pointer"
-          >
-            Exit Guard Mode
-          </button>
+  const handleLogGateEntry = async (bookingId: string) => {
+    await mockApi.logGateEntry({
+      societyId: society?.id || 'soc-1',
+      bookingId,
+      vehicleRegNo: 'MH-12 AB 4821',
+      driverName: 'Santosh Jadhav',
+      vendorName: 'Shree Ganesh Water Suppliers',
+      verifiedBy: 'Gate Security Guard',
+    });
+    showToast('Gate security verification logged successfully!');
+    refreshData();
+  };
+
+  return (
+    <div className="w-full max-w-7xl mx-auto space-y-5 select-none text-slate-800">
+      {/* Toast Notification */}
+      {toastMsg && (
+        <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-cyan-400 text-xs font-bold animate-in slide-in-from-top-3 flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-emerald-400" />
+          <span>{toastMsg}</span>
         </div>
+      )}
 
-        {/* Expected Tankers Big Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-          <div className="bg-slate-800/80 p-5 rounded-3xl border border-cyan-500/30 space-y-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950 px-2 py-1 rounded-md">
-                  MH-12 CD 9012
-                </span>
-                <h3 className="text-lg font-black text-white mt-2">10,000 L • Shree Ganesh Water</h3>
-                <p className="text-xs text-slate-400">Driver: Anand Shinde (+91 98902 11223)</p>
+      {/* ============================================================== */}
+      {/* 1. TOP 5 ACTION CARDS RIBBON (Matching reference aesthetic)   */}
+      {/* ============================================================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Card 1: Sump Levels */}
+        <button
+          onClick={() => setActiveTab('home')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-sm transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'home'
+              ? 'bg-gradient-to-r from-[#0d6b82] to-[#0a5265] text-white shadow-md shadow-cyan-900/20 scale-[1.02]'
+              : 'bg-gradient-to-r from-[#0d6b82] to-[#0a5265] text-white hover:brightness-105 shadow-xs'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <Droplets size={18} className="text-white" />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Sump Levels</span>
+              <span className="text-[10px] text-cyan-200 font-medium">{sumpPct}% Capacity</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-white/80 shrink-0" />
+        </button>
+
+        {/* Card 2: Gate Guard Mode */}
+        <button
+          onClick={() => setGateMode(!gateMode)}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            gateMode
+              ? 'bg-cyan-50 border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Gate Mode</span>
+              <span className="text-[10px] text-slate-400 font-medium">{gateMode ? 'Active (Live)' : 'Standby'}</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 3: Recurring Schedule */}
+        <button
+          onClick={() => setActiveTab('recurring')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'recurring'
+              ? 'bg-white border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+              <Calendar size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Schedule</span>
+              <span className="text-[10px] text-slate-400 font-medium">Daily 7:00 PM</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 4: Approvals */}
+        <button
+          onClick={() => setActiveTab('approvals')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'approvals'
+              ? 'bg-white border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+              <UserCheck size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Approvals</span>
+              <span className="text-[10px] text-slate-400 font-medium">Committee 2-Sign</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 5: Monthly Invoices */}
+        <button
+          onClick={() => setActiveTab('invoices')}
+          className="col-span-2 sm:col-span-1 flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white border border-sky-100/90 shadow-xs text-left text-slate-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0">
+              <FileText size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Invoices</span>
+              <span className="text-[10px] text-slate-400 font-medium">GST Statements</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+      </div>
+
+      {/* ============================================================== */}
+      {/* 2. MAIN 2-COLUMN DASHBOARD (Society View)                      */}
+      {/* ============================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-in fade-in duration-200">
+        {/* Left Column (7/12): Hero Sump Status + 4 Metrics + Sump Visualizer */}
+        <div className="lg:col-span-7 space-y-5">
+          {/* HERO SUMP STATUS CARD */}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#063b4f] via-[#09576f] to-[#0c6b84] text-white p-5 sm:p-7 shadow-lg shadow-cyan-950/15 border border-cyan-800/40">
+            <div className="relative z-10 space-y-4 max-w-md">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400/20 backdrop-blur-md border border-cyan-300/30 text-cyan-200 text-[11px] font-extrabold uppercase tracking-wider">
+                <Building2 size={13} className="text-cyan-300" />
+                <span>Rohan Leher Society • Baner</span>
               </div>
-              <span className="text-xs font-bold text-emerald-400 bg-emerald-950 px-2.5 py-1 rounded-full">
-                PMC Parvati Verified
+
+              <div>
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white leading-tight">
+                  Sump Level: {sumpPct}% Optimal
+                </h2>
+                <p className="text-cyan-200 text-xs sm:text-sm font-semibold mt-0.5">
+                  {sumpCurrentL.toLocaleString()} / {sumpCapacityL.toLocaleString()} Litres • 18 Hours Reserve
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-200">
+                <CheckCircle2 size={15} className="text-emerald-300" />
+                <span>Next automated top-up scheduled for 7:00 PM today</span>
+              </div>
+
+              <div className="pt-1 flex items-center gap-3">
+                <button
+                  onClick={() => setShowAutoRefillModal(true)}
+                  className="px-5 py-2 rounded-full bg-white text-cyan-950 text-xs font-black hover:bg-cyan-50 shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Trigger Auto-Refill</span>
+                  <ArrowRight size={13} />
+                </button>
+              </div>
+            </div>
+
+            <div className="absolute right-4 sm:right-6 bottom-4 sm:bottom-6 z-10 text-right pointer-events-none hidden sm:block">
+              <span className="text-sm font-serif italic text-cyan-100/90 font-bold block drop-shadow-md">
+                Every Drop Counts ♡
+              </span>
+              <span className="text-xs text-cyan-200/80 font-mono">
+                120 Flats Registered
+              </span>
+            </div>
+          </div>
+
+          {/* 4 STATUS METRIC CARDS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                <Droplet size={17} className="fill-cyan-500 text-cyan-600" />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Water Quality</span>
+                <span className="text-sm font-black text-slate-900 block">TDS 145 ppm</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-emerald-700">Safe Domestic</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Gauge size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Sump Health</span>
+                <span className="text-sm font-black text-slate-900 block">{sumpPct}% Full</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-slate-500">Threshold: 30%</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+                <Truck size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Tankers Active</span>
+                <span className="text-sm font-black text-slate-900 block">1 En Route</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-cyan-700">ETA: 35 mins</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                <Award size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Society Budget</span>
+                <span className="text-sm font-black text-slate-900 block">₹38,200</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-teal-700">Escrow Reserved</div>
+            </div>
+          </div>
+
+          {/* SUMP TANK LEVEL VISUALIZER */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity size={18} className="text-cyan-700" />
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  Underground Sump Level Visualizer (IoT Telemetry)
+                </h3>
+              </div>
+              <span className="text-xs font-bold text-cyan-700 bg-cyan-50 px-2.5 py-1 rounded-full">
+                Live Sensor Telemetry
               </span>
             </div>
 
-            <div className="flex flex-wrap sm:flex-nowrap gap-2">
-              <button
-                onClick={async () => {
-                  await mockApi.logGateEntry({
-                    societyId: society.id,
-                    bookingId: 'BK-2026-8820',
-                    vehicleRegNo: 'MH-12 CD 9012',
-                    driverName: 'Anand Shinde',
-                    vendorName: 'Shree Ganesh Water Suppliers',
-                    volumeL: 10000,
-                    sourceBadge: 'PMC Parvati Verified',
-                    verifiedBy: 'Guard Kailash',
-                  });
-                  refreshData();
-                  showToast('✓ Vehicle MH-12 CD 9012 entry recorded with PMC source verified badge!');
-                }}
-                className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-2xl text-sm flex items-center justify-center gap-2 cursor-pointer shadow-lg"
-              >
-                <CheckCircle2 size={18} />
-                <span>Mark Gate IN</span>
-              </button>
-
-              <button
-                onClick={() => showToast('✓ Vehicle marked Gate OUT. Delivery logged to society ledger.')}
-                className="py-3 px-5 bg-slate-700 hover:bg-slate-600 text-slate-300 font-bold rounded-2xl text-sm cursor-pointer"
-              >
-                Mark OUT
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {toastMsg && (
-          <div className="bg-emerald-900/90 border border-emerald-500 text-emerald-200 px-4 py-2.5 rounded-2xl text-xs font-semibold text-center my-2">
-            {toastMsg}
-          </div>
-        )}
-
-        <div className="text-xs text-slate-500 text-center">
-          Security Gate 1 • Tap 'Mark Gate IN' to auto-verify against digital manifest
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{society.name}</h1>
-            <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
-              Pro Plan (240 Flats)
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 mt-1">Balewadi High Street, Pune • Treasurer: Rajesh Patil</p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setGateMode(true)}
-            className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-2xl flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
-          >
-            <UserCheck size={16} className="text-cyan-400" />
-            <span>Launch Gate Guard Mode</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Pending Committee Approval Banner (if above threshold) */}
-      {pendingApproval && (
-        <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
-              <AlertTriangle size={20} />
-            </div>
-            <div>
-              <div className="font-extrabold text-amber-950 text-sm">
-                Tanker Order Requires Committee Approval ({formatINR(pendingApproval.price.total)})
+            <div className="p-4 rounded-2xl bg-sky-50/50 border border-sky-100 space-y-3">
+              <div className="flex justify-between text-xs font-bold text-slate-700">
+                <span>Current Reserve: {sumpCurrentL.toLocaleString()} L</span>
+                <span>Max Capacity: {sumpCapacityL.toLocaleString()} L</span>
               </div>
-              <p className="text-amber-800 mt-0.5">
-                Amount exceeds society auto-approval limit of {formatINR(society.approvalThresholdPaise)}.
+
+              {/* Graphical Tank Level Indicator */}
+              <div className="h-6 w-full rounded-full bg-slate-200 overflow-hidden relative shadow-inner">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-teal-500 rounded-full transition-all duration-500 relative"
+                  style={{ width: `${sumpPct}%` }}
+                >
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-black text-white">
+                    {sumpPct}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-between text-[11px] text-slate-400 font-medium">
+                <span>0 L (Empty)</span>
+                <span className="text-amber-600 font-bold">Auto-Refill Trigger: 10,800 L (30%)</span>
+                <span>36,000 L (Full)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column (5/12): Gate Guard Mode + Approvals + Quick Actions */}
+        <div className="lg:col-span-5 space-y-5">
+          {/* 1. GATE GUARD CHECK-IN SCANNER CARD */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-cyan-700" />
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  Gate Security Mode
+                </h3>
+              </div>
+              <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${gateMode ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
+                {gateMode ? 'Guard Active' : 'Standby'}
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Security guards verify PMC licensed water permits, tanker seal, and vehicle registration before admitting tankers.
+            </p>
+
+            <button
+              onClick={() => handleLogGateEntry('BK-9481')}
+              className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-extrabold text-xs shadow-sm cursor-pointer flex items-center justify-center gap-2"
+            >
+              <CheckCircle2 size={15} />
+              <span>Log Tanker Gate Entry (MH-12 AB 4821)</span>
+            </button>
+          </div>
+
+          {/* 2. COMMITTEE DUAL SIGN-OFF APPROVAL CARD */}
+          {pendingApproval ? (
+            <div className="rounded-3xl bg-amber-50 p-5 border border-amber-200 shadow-2xs space-y-3">
+              <div className="flex items-center gap-2 text-amber-900 font-black text-xs">
+                <AlertTriangle size={16} className="text-amber-600" />
+                <span>Committee Sign-Off Required (&gt; ₹5,000)</span>
+              </div>
+              <p className="text-xs text-amber-800">
+                Order for {pendingApproval.volumeL.toLocaleString()} L ({formatINR(pendingApproval.price.total)}) requires society chairman sign-off.
+              </p>
+              <button
+                onClick={() => handleApproveBooking(pendingApproval.id)}
+                className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Approve & Dispatch Tanker
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-3xl bg-white p-5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="flex items-center gap-2 text-slate-900 font-black text-xs">
+                <CheckCircle2 size={16} className="text-emerald-600" />
+                <span>All Committee Approvals Cleared</span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Zero pending budget disputes. All automated dispatches conform to AGM guidelines.
               </p>
             </div>
+          )}
+
+          {/* 3. SOCIETY QUICK CONTROLS */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-3">
+            <h4 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <Sparkles size={14} className="text-cyan-700" />
+              <span>Society Controls</span>
+            </h4>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setShowAutoRefillModal(true)}
+                className="p-3 rounded-2xl bg-cyan-50/70 border border-cyan-100 text-center hover:bg-cyan-100/70 transition-colors cursor-pointer"
+              >
+                <span className="text-xs font-extrabold block text-cyan-950">Auto-Refill</span>
+                <span className="text-[10px] text-slate-500">Schedule Rules</span>
+              </button>
+
+              <button
+                onClick={() => alert('Downloaded Rohan Leher Society Water Ledger & Invoices.')}
+                className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <span className="text-xs font-extrabold block text-slate-800">Export GST</span>
+                <span className="text-[10px] text-slate-500">Download PDF</span>
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
+        </div>
+      </div>
+
+      {/* Auto Refill Modal */}
+      {showAutoRefillModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-sky-100 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
+                <Droplets className="w-5 h-5 text-cyan-600" />
+                <span>Configure Auto-Refill Rules</span>
+              </div>
+              <button
+                onClick={() => setShowAutoRefillModal(false)}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500">
+              When sump drops below 30% (10,800 L), automatically order a 10,000 L tanker from Shree Ganesh Water Suppliers at PMC capped price.
+            </p>
+
             <button
               onClick={() => {
-                showToast('✓ Order approved by Society Treasurer. Matched to vendor.');
-                setPendingApproval(null);
+                showToast('Auto-refill rules saved and armed!');
+                setShowAutoRefillModal(false);
               }}
-              className="py-2 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl cursor-pointer"
+              className="w-full py-2.5 rounded-2xl bg-cyan-600 text-white font-black text-xs cursor-pointer hover:bg-cyan-700"
             >
-              Approve Order
-            </button>
-            <button
-              onClick={() => {
-                mockApi.cancelBooking(pendingApproval.id, 'Rejected by society committee');
-                setPendingApproval(null);
-              }}
-              className="py-2 px-4 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-xl cursor-pointer"
-            >
-              Reject
+              Save Auto-Refill Rules
             </button>
           </div>
         </div>
       )}
-
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Daily Consumption Card */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Per Person Consumption</div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{perPersonPerDayL} L</span>
-            <span className="text-xs text-slate-500">/ person / day</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-            {isOverBenchmark ? (
-              <span className="text-amber-600 flex items-center gap-1">
-                <AlertTriangle size={13} />
-                <span>&gt;150 L Alert (Check for leaks)</span>
-              </span>
-            ) : (
-              <span className="text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 size={13} />
-                <span>Below 135 L Benchmark</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Deliveries This Month */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Deliveries This Month</div>
-          <div className="text-2xl font-black text-cyan-900">28 Tankers</div>
-          <p className="text-[11px] text-slate-500">280,000 Litres total delivered</p>
-        </div>
-
-        {/* Quality Audit Score */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Source Verification</div>
-          <div className="text-2xl font-black text-emerald-600">100%</div>
-          <p className="text-[11px] text-slate-500">All deliveries from verified PMC Parvati source</p>
-        </div>
-
-        {/* Society Plan */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-2">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Society SaaS Plan</div>
-          <div className="text-2xl font-black text-slate-900">₹5,999 / mo</div>
-          <p className="text-[11px] text-cyan-700 font-semibold">Pro Tier (Up to 300 flats)</p>
-        </div>
-      </div>
-
-      {/* Two Column Layout: Recurring Orders & Gate Logs */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recurring Schedules */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="font-extrabold text-slate-900 text-sm">Recurring Tanker Schedules</h3>
-            <span className="text-[10px] text-cyan-700 font-bold bg-cyan-50 px-2 py-0.5 rounded-full">Automated</span>
-          </div>
-
-          <div className="space-y-3">
-            {society.recurringOrders.map((rec) => (
-              <div
-                key={rec.id}
-                className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between"
-              >
-                <div>
-                  <div className="font-extrabold text-xs text-slate-900">
-                    {rec.volumeL.toLocaleString('en-IN')} L • {rec.time}
-                  </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5">
-                    {rec.daysOfWeek.map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}
-                  </div>
-                </div>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
-                  Active
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Gate Logs */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 className="font-extrabold text-slate-900 text-sm">Security Gate In/Out Log</h3>
-            <span className="text-[10px] text-slate-400">Gate 1</span>
-          </div>
-
-          <div className="space-y-3">
-            {gateLogs.map((log) => (
-              <div
-                key={log.id}
-                className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
-              >
-                <div>
-                  <div className="font-extrabold text-slate-900">{log.vehicleRegNo}</div>
-                  <div className="text-[11px] text-slate-500">
-                    Driver: {log.driverName} • {log.sourceBadge}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="font-semibold text-slate-700">
-                    {format(new Date(log.entryTs), 'hh:mm a')}
-                  </div>
-                  <span className="text-[10px] text-emerald-600 font-bold">Verified IN</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

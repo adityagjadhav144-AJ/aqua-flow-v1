@@ -15,9 +15,10 @@ import { Language } from '../../types';
 
 interface AuthPortalProps {
   onLoginSuccess?: () => void;
+  onBackToAbout?: () => void;
 }
 
-export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
+export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess, onBackToAbout }) => {
   const { currentLanguage, setLanguage, t } = useAppStore();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
@@ -112,15 +113,27 @@ export const AuthPortal: React.FC<AuthPortalProps> = ({ onLoginSuccess }) => {
       </div>
 
       {/* Top Utility Header Bar */}
-      <header className="w-full max-w-7xl mx-auto px-4 sm:px-8 pt-4 sm:pt-6 flex items-center justify-between z-10 shrink-0">
-        {/* Subtle Civic Indicator Pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 hover:bg-white/85 backdrop-blur-xl border border-white/60 shadow-xs text-xs text-slate-800 transition-all">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-bold text-slate-900">
-            {currentLanguage === 'mr' ? 'पुणे मनपा अधिकृत जल नियंत्रण कक्ष' : 'PMC Water Supply & Logistics Command'}
-          </span>
-          <span className="hidden sm:inline text-slate-400">·</span>
-          <span className="hidden sm:inline text-slate-600 font-medium">Strict Role Isolation</span>
+      <header className="w-full max-w-7xl mx-auto px-4 sm:px-8 pt-4 sm:pt-6 flex items-center justify-between gap-4 z-10 shrink-0">
+        <div className="flex items-center gap-2.5">
+          {onBackToAbout && (
+            <button
+              type="button"
+              onClick={onBackToAbout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/80 hover:bg-white backdrop-blur-xl border border-white/70 shadow-xs text-xs font-bold text-slate-800 hover:text-[#0A5265] transition-all cursor-pointer whitespace-nowrap shrink-0"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>{currentLanguage === 'mr' ? 'माहिती पृष्ठ' : 'About'}</span>
+            </button>
+          )}
+
+          {/* Subtle Civic Indicator */}
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/70 hover:bg-white/85 backdrop-blur-xl border border-white/60 shadow-xs text-xs text-slate-800 transition-all">
+            <span className="font-bold text-slate-900">
+              {currentLanguage === 'mr' ? 'पुणे मनपा अधिकृत जल नियंत्रण कक्ष' : 'PMC Water Supply & Logistics Command'}
+            </span>
+            <span className="text-slate-400">·</span>
+            <span className="text-slate-600 font-medium">Strict Role Isolation</span>
+          </div>
         </div>
 
         {/* Right Utility Buttons: Language Switcher & Register */}

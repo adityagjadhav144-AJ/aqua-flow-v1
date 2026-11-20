@@ -19,25 +19,44 @@ import {
   RotateCcw,
   DollarSign,
   FileText,
+  ArrowRight,
+  Activity,
+  Award,
+  Sparkles,
+  ChevronRight,
+  Check,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-export const VendorView: React.FC = () => {
+interface VendorViewProps {
+  activeNav?: string;
+  onNavChange?: (nav: string) => void;
+}
+
+export const VendorView: React.FC<VendorViewProps> = ({
+  activeNav: externalNav,
+  onNavChange: externalOnNavChange,
+}) => {
   const { currentUser } = useAppStore();
+  const [internalTab, setInternalTab] = useState<string>('home');
+  const activeTab = externalNav || internalTab;
+  const setActiveTab = (tab: string) => {
+    setInternalTab(tab);
+    if (externalOnNavChange) externalOnNavChange(tab);
+  };
+
   const [vendor, setVendor] = useState<Vendor | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [activeTab, setActiveTab] = useState<'fleet' | 'batching' | 'ledger' | 'compliance'>('fleet');
-  const [appealSubmitted, setAppealSubmitted] = useState(false);
 
   const refreshData = () => {
     const data = db.getData();
     const v = data.vendors.find((item) => item.id === 'vendor-1') || data.vendors[0];
     setVendor(v);
-    setVehicles(data.vehicles.filter((veh) => veh.vendorId === v.id));
-    setDrivers(data.drivers.filter((d) => d.vendorId === v.id));
-    setBookings(data.bookings.filter((b) => b.vendorId === v.id));
+    setVehicles(data.vehicles.filter((veh) => veh.vendorId === v?.id));
+    setDrivers(data.drivers.filter((d) => d.vendorId === v?.id));
+    setBookings(data.bookings.filter((b) => b.vendorId === v?.id));
   };
 
   useEffect(() => {
@@ -58,293 +77,294 @@ export const VendorView: React.FC = () => {
   const batchOptimization = optimizeRouteBatch(depot, sampleStops);
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 to-teal-500 text-white font-black flex items-center justify-center text-xl">
-            <Truck size={24} />
+    <div className="w-full max-w-7xl mx-auto space-y-5 select-none text-slate-800">
+      {/* ============================================================== */}
+      {/* 1. TOP 5 ACTION CARDS RIBBON (Vendor Fleet)                    */}
+      {/* ============================================================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Card 1: Fleet Roster */}
+        <button
+          onClick={() => setActiveTab('home')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-sm transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'home'
+              ? 'bg-gradient-to-r from-[#0d6b82] to-[#0a5265] text-white shadow-md shadow-cyan-900/20 scale-[1.02]'
+              : 'bg-gradient-to-r from-[#0d6b82] to-[#0a5265] text-white hover:brightness-105 shadow-xs'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <Truck size={18} className="text-white" />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Fleet Roster</span>
+              <span className="text-[10px] text-cyan-200 font-medium">8/10 Online</span>
+            </div>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">{vendor.name}</h1>
-              <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-cyan-100 text-cyan-800">
-                Fleet Pro (6 Vehicles)
+          <ArrowRight size={15} className="text-white/80 shrink-0" />
+        </button>
+
+        {/* Card 2: 2-Opt Batching */}
+        <button
+          onClick={() => setActiveTab('route_batching')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'route_batching'
+              ? 'bg-white border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0">
+              <Route size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">2-Opt Batching</span>
+              <span className="text-[10px] text-slate-400 font-medium">18% Fuel Saved</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 3: Driver Payouts */}
+        <button
+          onClick={() => setActiveTab('payouts')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'payouts'
+              ? 'bg-white border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+              <DollarSign size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Driver Payouts</span>
+              <span className="text-[10px] text-slate-400 font-medium">Instant Escrow</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 4: PMC Permits */}
+        <button
+          onClick={() => setActiveTab('compliance')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'compliance'
+              ? 'bg-white border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">PMC Permits</span>
+              <span className="text-[10px] text-slate-400 font-medium">100% Verified</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 5: Fleet Revenue */}
+        <div className="col-span-2 sm:col-span-1 flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white border border-sky-100/90 shadow-xs text-left text-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">₹21,600</span>
+              <span className="text-[10px] text-emerald-600 font-bold">Today's Revenue</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ============================================================== */}
+      {/* 2. MAIN 2-COLUMN DASHBOARD (Vendor View)                       */}
+      {/* ============================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-in fade-in duration-200">
+        {/* Left Column (7/12): Hero Optimization + 4 Metrics + 2-Opt Visualizer */}
+        <div className="lg:col-span-7 space-y-5">
+          {/* HERO FLEET STATUS */}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#063b4f] via-[#09576f] to-[#0c6b84] text-white p-5 sm:p-7 shadow-lg shadow-cyan-950/15 border border-cyan-800/40">
+            <div className="relative z-10 space-y-4 max-w-md">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400/20 backdrop-blur-md border border-cyan-300/30 text-cyan-200 text-[11px] font-extrabold uppercase tracking-wider">
+                <Truck size={13} className="text-cyan-300" />
+                <span>{vendor.name} • Fleet Ops</span>
+              </div>
+
+              <div>
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white leading-tight">
+                  8 of 10 Tankers Active
+                </h2>
+                <p className="text-cyan-200 text-xs sm:text-sm font-semibold mt-0.5">
+                  2-Opt AI Route Batching active • Average delivery turnaround 34 mins
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-200">
+                <CheckCircle2 size={15} className="text-emerald-300" />
+                <span>Zero fair-price violations • 100% Escrow settlements cleared</span>
+              </div>
+            </div>
+
+            <div className="absolute right-4 sm:right-6 bottom-4 sm:bottom-6 z-10 text-right pointer-events-none hidden sm:block">
+              <span className="text-sm font-serif italic text-cyan-100/90 font-bold block drop-shadow-md">
+                Every Drop Counts ♡
+              </span>
+              <span className="text-xs text-cyan-200/80 font-mono">
+                PMC Zone 2 Fleet
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Owner: Meena Shinde • Rating: {vendor.rating} ★ • On-time: {vendor.onTimePct}%
-            </p>
           </div>
-        </div>
 
-        {/* Status Badge */}
-        <div className="flex items-center gap-3">
-          <span
-            className={`text-xs font-bold px-3 py-1.5 rounded-full ${
-              vendor.status === 'active'
-                ? 'bg-emerald-100 text-emerald-800'
-                : 'bg-rose-100 text-rose-800 animate-pulse'
-            }`}
-          >
-            Status: {vendor.status.toUpperCase()}
-          </span>
-        </div>
-      </div>
-
-      {/* Flagged Banner & Appeal if vendor is flagged */}
-      {vendor.status === 'flagged' && (
-        <div className="bg-rose-50 border border-rose-200 rounded-3xl p-5 space-y-3">
-          <div className="flex items-center gap-2 text-rose-800 font-extrabold text-sm">
-            <AlertTriangle size={18} />
-            <span>Matching Suspended: Vendor Flagged for Quality Complaints</span>
-          </div>
-          <p className="text-xs text-rose-700 leading-relaxed">
-            {vendor.flagReason || '3 water-quality tags received in 7 days. Auto-excluded from customer matching.'}
-          </p>
-          {!appealSubmitted ? (
-            <button
-              onClick={() => {
-                setAppealSubmitted(true);
-              }}
-              className="py-2 px-4 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
-            >
-              Submit Quality Rectification Appeal
-            </button>
-          ) : (
-            <div className="text-xs font-bold text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200">
-              ✓ Appeal logged with PMC Municipal Water Quality cell for physical re-testing.
+          {/* 4 VENDOR METRICS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                <Truck size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Fleet Utilization</span>
+                <span className="text-sm font-black text-slate-900 block">80% Online</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-cyan-700">8 Active Tankers</div>
             </div>
-          )}
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <Activity size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Volume Delivered</span>
+                <span className="text-sm font-black text-slate-900 block">72,000 L</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-emerald-700">↑ 14% vs Yesterday</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Award size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Fleet Rating</span>
+                <span className="text-sm font-black text-slate-900 block">{vendor.rating} ★</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-slate-500">Tier 1 Vendor</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                <ShieldCheck size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">PMC Compliance</span>
+                <span className="text-sm font-black text-slate-900 block">100% Valid</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-teal-700">Parvati Stations</div>
+            </div>
+          </div>
+
+          {/* 2-OPT ROUTE BATCHING MAP */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Route size={18} className="text-cyan-700" />
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  2-Opt Clustered Route Optimization
+                </h3>
+              </div>
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full">
+                Savings: {Math.round((batchOptimization.savedKm / (batchOptimization.originalDistanceKm || 1)) * 100) || 18}% Km Reduced
+              </span>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-slate-200">
+              <LeafletMap
+                center={[18.54, 73.80]}
+                zoom={12}
+                className="h-64 w-full"
+                markers={[
+                  { id: 'depot', lat: depot.lat, lng: depot.lng, title: depot.label, type: 'source' },
+                  ...sampleStops.map((s) => ({
+                    id: s.id,
+                    lat: s.lat,
+                    lng: s.lng,
+                    title: `${s.label} (${s.volumeL}L)`,
+                    type: 'delivery' as const,
+                  })),
+                ]}
+                routePolyline={[
+                  [depot.lat, depot.lng],
+                  [sampleStops[0].lat, sampleStops[0].lng],
+                  [sampleStops[2].lat, sampleStops[2].lng],
+                  [sampleStops[1].lat, sampleStops[1].lng],
+                ]}
+              />
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-1">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fleet Size</div>
-          <div className="text-2xl font-black text-slate-900">{vehicles.length} Tankers</div>
-          <p className="text-[11px] text-slate-500">5 Active • 1 Idle/Offline</p>
-        </div>
+        {/* Right Column (5/12): Fleet Roster + Quick Actions */}
+        <div className="lg:col-span-5 space-y-5">
+          {/* TANKER FLEET ROSTER */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <Truck size={17} className="text-cyan-700" />
+                <span>Live Tanker Roster</span>
+              </h3>
+              <span className="text-xs font-bold text-slate-400">{vehicles.length} Tankers</span>
+            </div>
 
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-1">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Gross Payouts (Month)</div>
-          <div className="text-2xl font-black text-emerald-600">₹3,48,200</div>
-          <p className="text-[11px] text-slate-500">5% Platform commission (Fleet Pro)</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-1">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Driver Payout Cut</div>
-          <div className="text-2xl font-black text-cyan-900">12% / Trip</div>
-          <p className="text-[11px] text-slate-500">Instant driver wallet settlements</p>
-        </div>
-
-        <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-1">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Route Optimization</div>
-          <div className="text-2xl font-black text-cyan-800">18.4 km Saved</div>
-          <p className="text-[11px] text-slate-500">₹460 diesel saved today</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 pb-2 overflow-x-auto scrollbar-none flex-nowrap">
-        {[
-          { id: 'fleet', label: 'Fleet & Drivers' },
-          { id: 'batching', label: 'Route Batching (2-Opt AI)' },
-          { id: 'ledger', label: 'Payouts & Ledger' },
-          { id: 'compliance', label: 'Water Source Certs' },
-        ].map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`py-2 px-3 sm:px-4 rounded-2xl text-xs font-extrabold transition-all cursor-pointer shrink-0 whitespace-nowrap ${
-              activeTab === tab.id
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-white text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Tab 1: Fleet & Drivers */}
-      {activeTab === 'fleet' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Vehicles List */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-sm text-slate-900">Vehicle Roster</h3>
-            <div className="space-y-3">
-              {vehicles.map((v) => (
-                <div
-                  key={v.id}
-                  className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="font-mono font-bold text-slate-900">{v.regNo}</div>
-                    <div className="text-[11px] text-slate-500">{v.capacityL.toLocaleString('en-IN')} L Capacity</div>
+            <div className="space-y-2.5">
+              {vehicles.slice(0, 4).map((veh) => (
+                <div key={veh.id} className="p-3 rounded-2xl border border-slate-100 bg-slate-50/60 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-cyan-100 text-cyan-800 flex items-center justify-center font-bold text-xs">
+                      {veh.capacityL / 1000}k
+                    </div>
+                    <div>
+                      <div className="font-extrabold text-xs text-slate-900">{veh.regNo}</div>
+                      <div className="text-[10px] text-slate-400">Driver: Santosh Jadhav • PMC Verified</div>
+                    </div>
                   </div>
-                  <span
-                    className={`text-[10px] font-bold px-2.5 py-1 rounded-full capitalize ${
-                      v.status === 'idle'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : v.status === 'busy'
-                        ? 'bg-cyan-100 text-cyan-800'
-                        : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {v.status}
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                    Active
                   </span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Drivers List */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-            <h3 className="font-extrabold text-sm text-slate-900">Driver Roster & Source Status</h3>
-            <div className="space-y-3">
-              {drivers.map((d) => (
-                <div
-                  key={d.id}
-                  className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs"
-                >
-                  <div>
-                    <div className="font-bold text-slate-900">{d.name}</div>
-                    <div className="text-[11px] text-slate-500">{d.phone}</div>
-                  </div>
-                  <div className="text-right">
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        d.online ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {d.online ? 'Online' : 'Offline'}
-                    </span>
-                    <div className="text-[10px] text-slate-400 mt-0.5">
-                      {d.todayCheckInId ? 'Source Verified' : 'Check-in Pending'}
-                    </div>
-                  </div>
-                </div>
-              ))}
+          {/* VENDOR QUICK CONTROLS */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-3">
+            <h4 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <Sparkles size={14} className="text-cyan-700" />
+              <span>Fleet Operations</span>
+            </h4>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => alert('Dispatched optimized 2-Opt cluster to Driver Santosh Jadhav.')}
+                className="p-3 rounded-2xl bg-cyan-50/70 border border-cyan-100 text-center hover:bg-cyan-100/70 transition-colors cursor-pointer"
+              >
+                <span className="text-xs font-extrabold block text-cyan-950">Dispatch Batch</span>
+                <span className="text-[10px] text-slate-500">Auto Route 3 Stops</span>
+              </button>
+
+              <button
+                onClick={() => alert('Exported Vendor GST Invoices & Driver Payouts.')}
+                className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <span className="text-xs font-extrabold block text-slate-800">Export Ledger</span>
+                <span className="text-[10px] text-slate-500">Download Excel</span>
+              </button>
             </div>
           </div>
         </div>
-      )}
-
-      {/* Tab 2: Route Batching with 2-Opt TSP */}
-      {activeTab === 'batching' && (
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
-            <div>
-              <h3 className="font-extrabold text-slate-900 text-sm">Intelligent Route Batching (2-Opt)</h3>
-              <p className="text-xs text-slate-500">Clusters nearby deliveries to cut empty runs and fuel burn.</p>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
-                {batchOptimization.summary}
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-            {/* Map */}
-            <LeafletMap
-              center={[18.559, 73.786]}
-              zoom={13}
-              className="h-64 w-full rounded-2xl overflow-hidden"
-              markers={[
-                { id: 'depot', lat: depot.lat, lng: depot.lng, title: depot.label, type: 'source' },
-                ...sampleStops.map((s) => ({
-                  id: s.id,
-                  lat: s.lat,
-                  lng: s.lng,
-                  title: `${s.label} (${s.volumeL} L)`,
-                  type: 'delivery' as const,
-                })),
-              ]}
-              routePolyline={[
-                [depot.lat, depot.lng],
-                [sampleStops[0].lat, sampleStops[0].lng],
-                [sampleStops[2].lat, sampleStops[2].lng],
-                [sampleStops[1].lat, sampleStops[1].lng],
-              ]}
-            />
-
-            {/* Optimized Sequence */}
-            <div className="space-y-3">
-              <div className="text-xs font-bold text-slate-800">Optimized Trip Sequence:</div>
-              <div className="space-y-2">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
-                  <span className="font-semibold text-slate-800">1. Source: PMC Parvati (Fill 25,000 L)</span>
-                  <span className="text-[10px] text-emerald-700 font-bold">Depot</span>
-                </div>
-                {sampleStops.map((s, i) => (
-                  <div
-                    key={s.id}
-                    className="p-3 bg-white rounded-xl border border-cyan-100 text-xs flex items-center justify-between shadow-xs"
-                  >
-                    <div>
-                      <span className="font-bold text-slate-900">{i + 2}. {s.label}</span>
-                      <span className="text-[10px] text-slate-400 block">{s.orderId}</span>
-                    </div>
-                    <span className="text-[11px] font-bold text-cyan-800">{s.volumeL.toLocaleString('en-IN')} L</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: Ledger */}
-      {activeTab === 'ledger' && (
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-          <h3 className="font-extrabold text-sm text-slate-900">Settled Vendor Payouts & Escrow Releases</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left min-w-[480px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-400 text-[10px] uppercase font-bold">
-                  <th className="pb-2">Booking ID</th>
-                  <th className="pb-2">Gross Total</th>
-                  <th className="pb-2">Commission (5%)</th>
-                  <th className="pb-2">Driver Incentive (12%)</th>
-                  <th className="pb-2 text-right">Net Vendor Credit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {bookings.slice(0, 5).map((b) => (
-                  <tr key={b.id} className="text-slate-700">
-                    <td className="py-2.5 font-mono font-semibold">{b.id}</td>
-                    <td className="py-2.5">{formatINR(b.price.total)}</td>
-                    <td className="py-2.5 text-slate-400">-{formatINR(Math.round(b.price.total * 0.05))}</td>
-                    <td className="py-2.5 text-cyan-700">-{formatINR(Math.round(b.price.total * 0.12))}</td>
-                    <td className="py-2.5 text-right font-extrabold text-emerald-700">
-                      +{formatINR(Math.round(b.price.total * 0.83))}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: Compliance */}
-      {activeTab === 'compliance' && (
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
-          <h3 className="font-extrabold text-sm text-slate-900">Government Water Source Certificates</h3>
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
-            <div>
-              <div className="font-bold text-emerald-900">PMC Water Supply Dept Tanker License</div>
-              <div className="text-[11px] text-emerald-700 font-mono">Licence No: PMC-COMM-WTR-2026-088</div>
-            </div>
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-              Valid Till Dec 2026
-            </span>
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

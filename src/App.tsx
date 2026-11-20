@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
-import { Header } from './components/common/Header';
-import { Footer } from './components/common/Footer';
+import { DashboardShell } from './components/layout/DashboardShell';
 import { DemoPanel } from './components/common/DemoPanel';
 import { GuidedTour } from './components/common/GuidedTour';
 import { NotificationCenter } from './components/common/NotificationCenter';
+import { AquaBotModal } from './components/common/AquaBotModal';
 
 // Feature Views
 import { ResidentView } from './features/resident/ResidentView';
@@ -15,67 +15,72 @@ import { MunicipalView } from './features/municipal/MunicipalView';
 import { OpsView } from './features/ops/OpsView';
 
 import { AuthPortal } from './features/auth/AuthPortal';
+import { AboutPage } from './features/about/AboutPage';
 
 export default function App() {
   const { currentRole, isAuthenticated } = useAppStore();
+  const [activeNav, setActiveNav] = useState('home');
   const [isDemoPanelOpen, setIsDemoPanelOpen] = useState(false);
+  const [showAuthPortal, setShowAuthPortal] = useState(false);
 
-  // Strict Login & Registration Wall
+  // Reset active navigation item to 'home' whenever role changes
+  useEffect(() => {
+    setActiveNav('home');
+  }, [currentRole]);
+
+  // Visitor Landing / About Page -> Get Started -> Login & Registration Wall
   if (!isAuthenticated) {
-    return <AuthPortal />;
+    if (!showAuthPortal) {
+      return (
+        <AboutPage
+          onGetStarted={() => {
+            setShowAuthPortal(true);
+            window.scrollTo({ top: 0 });
+          }}
+        />
+      );
+    }
+
+    return (
+      <AuthPortal
+        onBackToAbout={() => {
+          setShowAuthPortal(false);
+          window.scrollTo({ top: 0 });
+        }}
+      />
+    );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F4FAFB] font-sans antialiased text-slate-900 w-full max-w-full overflow-x-hidden">
-      {/* Universal Top Header */}
-      <Header onOpenDemoPanel={() => setIsDemoPanelOpen(true)} />
+    <DashboardShell
+      activeNav={activeNav}
+      onNavChange={setActiveNav}
+      onOpenDemoPanel={() => setIsDemoPanelOpen(true)}
+    >
+      {currentRole === 'resident' && (
+        <ResidentView activeNav={activeNav} onNavChange={setActiveNav} />
+      )}
+      {currentRole === 'driver' && (
+        <DriverView activeNav={activeNav} onNavChange={setActiveNav} />
+      )}
+      {currentRole === 'society' && (
+        <SocietyView activeNav={activeNav} onNavChange={setActiveNav} />
+      )}
+      {currentRole === 'vendor' && (
+        <VendorView activeNav={activeNav} onNavChange={setActiveNav} />
+      )}
+      {currentRole === 'municipal' && (
+        <MunicipalView activeNav={activeNav} onNavChange={setActiveNav} />
+      )}
+      {currentRole === 'ops' && (
+        <OpsView activeNav={activeNav} onNavChange={setActiveNav} />
+      )}
 
-      {/* Main Role-Specific Viewport */}
-      <main className="flex-1 flex flex-col w-full max-w-full overflow-x-hidden">
-        {currentRole === 'resident' && (
-          <div className="flex-1 w-full py-4">
-            <ResidentView />
-          </div>
-        )}
-
-        {currentRole === 'driver' && (
-          <div className="flex-1 w-full py-4">
-            <DriverView />
-          </div>
-        )}
-
-        {currentRole === 'society' && (
-          <div className="flex-1 w-full py-4">
-            <SocietyView />
-          </div>
-        )}
-
-        {currentRole === 'vendor' && (
-          <div className="flex-1 w-full py-4">
-            <VendorView />
-          </div>
-        )}
-
-        {currentRole === 'municipal' && (
-          <div className="flex-1 w-full py-4">
-            <MunicipalView />
-          </div>
-        )}
-
-        {currentRole === 'ops' && (
-          <div className="flex-1 w-full py-4">
-            <OpsView />
-          </div>
-        )}
-      </main>
-
-      {/* Interactive Global Drawers & Overlays */}
+      {/* Global Interactive Overlays */}
       <DemoPanel isOpen={isDemoPanelOpen} onClose={() => setIsDemoPanelOpen(false)} />
       <NotificationCenter />
       <GuidedTour />
-
-      {/* Universal Footer Note */}
-      <Footer />
-    </div>
+      <AquaBotModal />
+    </DashboardShell>
   );
 }

@@ -26,10 +26,32 @@ import {
   X,
   Navigation,
   DollarSign,
+  Award,
+  Activity,
+  Layers,
+  Sparkles,
+  ChevronRight,
+  Gauge,
+  Droplets,
 } from 'lucide-react';
 
-export const DriverView: React.FC = () => {
+interface DriverViewProps {
+  activeNav?: string;
+  onNavChange?: (nav: string) => void;
+}
+
+export const DriverView: React.FC<DriverViewProps> = ({
+  activeNav: externalNav,
+  onNavChange: externalOnNavChange,
+}) => {
   const { currentUser, t } = useAppStore();
+  const [internalTab, setInternalTab] = useState<string>('home');
+  const activeTab = externalNav || internalTab;
+  const setActiveTab = (tab: string) => {
+    setInternalTab(tab);
+    if (externalOnNavChange) externalOnNavChange(tab);
+  };
+
   const [driver, setDriver] = useState<any>(null);
   const [todayCheckIn, setTodayCheckIn] = useState<SourceCheckIn | null>(null);
   const [sources, setSources] = useState<WaterSource[]>([]);
@@ -60,7 +82,6 @@ export const DriverView: React.FC = () => {
     const checkin = data.sourceCheckIns.find((c) => c.driverId === drv.id && c.status === 'verified');
     setTodayCheckIn(checkin || null);
 
-    // Active job assigned to this driver
     const job = data.bookings.find(
       (b) =>
         b.driverId === drv.id &&
@@ -71,7 +92,6 @@ export const DriverView: React.FC = () => {
     setActiveJob(job || null);
     if (job) setDeliveredLitres(job.volumeL);
 
-    // Unaccepted job offer
     const offer = data.bookings.find(
       (b) => b.driverId === drv.id && b.status === 'MATCHED'
     );
@@ -97,7 +117,6 @@ export const DriverView: React.FC = () => {
     const interval = setInterval(() => {
       setOfferCountdown((prev) => {
         if (prev <= 1) {
-          // Timeout: decline and trigger reassign
           mockApi.cancelBooking(jobOffer.id, 'Driver offer timed out (90s)');
           return 90;
         }
@@ -107,7 +126,6 @@ export const DriverView: React.FC = () => {
     return () => clearInterval(interval);
   }, [jobOffer?.id]);
 
-  // Handle Source Check-in submission
   const handleCheckInSubmit = async () => {
     setCheckInLoading(true);
     setCheckInError(null);
@@ -116,7 +134,7 @@ export const DriverView: React.FC = () => {
         driverId: driver.id,
         sourceId: selectedSourceId,
         certificateNo: certInput,
-        driverLat: 18.4988, // At PMC Parvati filling station
+        driverLat: 18.4988,
         driverLng: 73.8472,
       });
 
@@ -131,37 +149,36 @@ export const DriverView: React.FC = () => {
     }
   };
 
-  // Status transitions: FILLING -> EN_ROUTE -> ARRIVED
   const handleTransitionStatus = async (status: any) => {
     if (!activeJob) return;
     await mockApi.updateBookingStatus(activeJob.id, status);
     refreshData();
   };
 
-  // Auto-scan Neha's live QR (Demo helper)
-  const handleAutoReadLiveQr = async () => {
-    if (!activeJob) return;
-    const livePayload = await mockApi.getPodQr(activeJob.id);
-    handleVerifyPoD(JSON.stringify(livePayload));
-  };
-
-  // Verify PoD
-  const handleVerifyPoD = async (payloadString: string) => {
+  const handleScanSubmit = async () => {
     if (!activeJob) return;
     setIsVerifying(true);
     try {
-      const res = await mockApi.verifyPod({
+      let lat = activeJob.lat;
+      let lng = activeJob.lng;
+      if (simulateGpsDrift) {
+        lat += 0.005;
+        lng += 0.005;
+      }
+      const result = await mockApi.verifyPod({
         bookingId: activeJob.id,
-        payloadString,
-        driverLat: activeJob.lat,
-        driverLng: activeJob.lng,
+        payloadString: qrInputText || 'simulated-valid-qr',
+        driverLat: lat,
+        driverLng: lng,
         deliveredLitres,
-        simulateGpsDrift,
       });
-
-      setVerifyResult(res.result);
-      if (res.result.allPassed) {
-        refreshData();
+      setVerifyResult(result.result);
+      if (result.result.allPassed) {
+        setTimeout(() => {
+          setShowScanner(false);
+          setVerifyResult(null);
+          refreshData();
+        }, 2500);
       }
     } finally {
       setIsVerifying(false);
@@ -169,442 +186,482 @@ export const DriverView: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 select-none text-slate-800">
-      {/* Top Driver Navigation & Vehicle Header Bar */}
-      <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 to-teal-500 flex items-center justify-center font-black text-white text-2xl shadow-md">
-            <Truck size={28} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-black tracking-tight">{driver?.name || 'Santosh Jadhav'}</h1>
-              <span className="text-xs font-mono bg-cyan-950 text-cyan-300 font-extrabold px-2.5 py-0.5 rounded-lg border border-cyan-700/60">
-                MH-12 AB 4821
-              </span>
-              <span className="text-xs bg-emerald-950 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-700/50">
-                10,000 Litre Tanker
-              </span>
+    <div className="w-full max-w-7xl mx-auto space-y-5 select-none text-slate-800">
+      {/* 90-Second Urgent Job Offer Alert Banner */}
+      {jobOffer && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-3xl p-5 shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in slide-in-from-top-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+              <Clock size={24} className="animate-spin" />
             </div>
-            <p className="text-xs text-cyan-200/80 mt-1">
-              Shree Ganesh Water Suppliers • Zone 2 (Baner-Aundh Corridor) • 12% Per-Trip Incentive
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-base font-black">New Tanker Dispatch Offer!</span>
+                <span className="px-2 py-0.5 rounded-full bg-white text-orange-700 text-xs font-black">
+                  {offerCountdown}s Left
+                </span>
+              </div>
+              <p className="text-xs text-orange-100 font-semibold mt-0.5">
+                {jobOffer.volumeL.toLocaleString()} Litres • Destination: {jobOffer.address.line} • Guaranteed Earning:{' '}
+                {formatINR(Math.round(jobOffer.price.total * 0.12))}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handleTransitionStatus('ACCEPTED')}
+              className="px-6 py-2.5 rounded-2xl bg-white text-slate-900 font-black text-xs hover:bg-orange-50 shadow-md cursor-pointer"
+            >
+              Accept Trip Now
+            </button>
+            <button
+              onClick={() => mockApi.cancelBooking(jobOffer.id, 'Driver declined')}
+              className="px-4 py-2.5 rounded-2xl bg-black/20 text-white font-bold text-xs hover:bg-black/30 cursor-pointer"
+            >
+              Decline
+            </button>
           </div>
         </div>
+      )}
 
-        {/* Driver Earnings & Online Toggle */}
-        <div className="flex items-center gap-4">
-          <div className="bg-slate-800/90 px-4 py-2 rounded-2xl border border-slate-700 text-right">
-            <div className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
-              Driver Wallet Balance
+      {/* ============================================================== */}
+      {/* 1. TOP 5 ACTION CARDS RIBBON (Matching reference aesthetic)   */}
+      {/* ============================================================== */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {/* Card 1: Active Trip */}
+        <button
+          onClick={() => setActiveTab('home')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-sm transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'home'
+              ? 'bg-gradient-to-r from-[#0d6b82] to-[#0a5265] text-white shadow-md shadow-cyan-900/20 scale-[1.02]'
+              : 'bg-gradient-to-r from-[#0d6b82] to-[#0a5265] text-white hover:brightness-105 shadow-xs'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+              <Truck size={18} className="text-white" />
             </div>
-            <div className="text-xl font-black text-cyan-300">
-              {formatINR(driver?.walletPaise || 0)}
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Active Trip</span>
+              <span className="text-[10px] text-cyan-200 font-medium">Trip Radar</span>
             </div>
           </div>
+          <ArrowRight size={15} className="text-white/80 shrink-0" />
+        </button>
 
-          <button
-            onClick={() => {
-              if (driver) {
-                db.update((d) => {
-                  const drv = d.drivers.find((item) => item.id === driver.id);
-                  if (drv) drv.online = !drv.online;
-                });
-                refreshData();
-              }
-            }}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer shadow-sm ${
-              driver?.online
-                ? 'bg-emerald-500 hover:bg-emerald-600 text-slate-950'
-                : 'bg-rose-500 hover:bg-rose-600 text-white'
-            }`}
-          >
-            {driver?.online ? 'Online (Ready)' : 'Offline'}
-          </button>
+        {/* Card 2: Source Check-In */}
+        <button
+          onClick={() => setActiveTab('source_checkin')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'source_checkin'
+              ? 'bg-white border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-700 flex items-center justify-center shrink-0">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Source Check-In</span>
+              <span className="text-[10px] text-slate-400 font-medium">PMC Audit</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 3: Scan Customer QR */}
+        <button
+          onClick={() => setShowScanner(true)}
+          className="flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 shadow-xs transition-all duration-200 cursor-pointer text-left text-slate-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center shrink-0">
+              <QrCode size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Scan PoD QR</span>
+              <span className="text-[10px] text-slate-400 font-medium">30s Token Lock</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 4: Earnings & Ledger */}
+        <button
+          onClick={() => setActiveTab('earnings')}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl shadow-xs transition-all duration-200 cursor-pointer text-left ${
+            activeTab === 'earnings'
+              ? 'bg-white border-2 border-cyan-500 shadow-md text-cyan-950 scale-[1.02]'
+              : 'bg-white border border-sky-100/90 hover:border-cyan-300 hover:bg-sky-50/50 text-slate-700'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-700 flex items-center justify-center shrink-0">
+              <Wallet size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight">Earnings</span>
+              <span className="text-[10px] text-slate-400 font-medium">{formatINR(driver?.walletPaise || 245000)}</span>
+            </div>
+          </div>
+          <ArrowRight size={15} className="text-slate-400 shrink-0" />
+        </button>
+
+        {/* Card 5: Vehicle Status */}
+        <div className="col-span-2 sm:col-span-1 flex items-center justify-between p-3.5 sm:p-4 rounded-2xl bg-white border border-sky-100/90 shadow-xs text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+              <CheckCircle2 size={18} />
+            </div>
+            <div>
+              <span className="text-xs sm:text-sm font-extrabold block tracking-tight text-slate-900">
+                MH-12 AB 4821
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold">10kL • PMC Active</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 2-Column Desktop Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column (7/12): Active Trip & Live Navigation Map */}
-        <div className="lg:col-span-7 space-y-6">
-          {activeJob ? (
-            <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping" />
-                    <h2 className="text-base font-black text-slate-900">
-                      Active Delivery Job: {activeJob.id}
-                    </h2>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Destination: {activeJob.address.label} ({activeJob.address.line})
-                  </p>
-                </div>
-                <span className="text-xs font-black text-cyan-800 bg-cyan-100 px-3 py-1 rounded-full uppercase">
-                  {activeJob.status.replace('_', ' ')}
-                </span>
+      {/* ============================================================== */}
+      {/* 2. MAIN 2-COLUMN DASHBOARD (Driver View)                       */}
+      {/* ============================================================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 animate-in fade-in duration-200">
+        {/* Left Column (7/12): Hero Active Trip Card + 4 Metrics + Navigation */}
+        <div className="lg:col-span-7 space-y-5">
+          {/* HERO ACTIVE TRIP CARD */}
+          <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-[#063b4f] via-[#09576f] to-[#0c6b84] text-white p-5 sm:p-7 shadow-lg shadow-cyan-950/15 border border-cyan-800/40">
+            <div className="relative z-10 space-y-4 max-w-md">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-400/20 backdrop-blur-md border border-cyan-300/30 text-cyan-200 text-[11px] font-extrabold uppercase tracking-wider">
+                <Truck size={13} className="text-cyan-300" />
+                <span>{activeJob ? 'Active Assigned Dispatch' : 'Ready for Dispatch'}</span>
               </div>
 
-              {/* Wide Driver Route Navigation Map */}
+              <div>
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white leading-tight">
+                  {activeJob ? activeJob.address.line : 'No Active Job Assigned'}
+                </h2>
+                <p className="text-cyan-200 text-xs sm:text-sm font-semibold mt-0.5">
+                  {activeJob
+                    ? `10,000 Litres • Customer: ${activeJob.address.label} • ETA: ${activeJob.etaMin} mins`
+                    : 'Standing by at PMC Parvati filling station • Online'}
+                </p>
+              </div>
+
+              {activeJob && (
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {(activeJob.status === 'ACCEPTED' || activeJob.status === 'MATCHED') && (
+                    <button
+                      onClick={() => handleTransitionStatus('FILLING')}
+                      className="px-5 py-2 rounded-full bg-white text-cyan-950 text-xs font-black hover:bg-cyan-50 shadow-md cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Play size={13} />
+                      <span>Start Water Filling</span>
+                    </button>
+                  )}
+                  {activeJob.status === 'FILLING' && (
+                    <button
+                      onClick={() => handleTransitionStatus('EN_ROUTE')}
+                      className="px-5 py-2 rounded-full bg-cyan-400 text-slate-950 text-xs font-black hover:bg-cyan-300 shadow-md cursor-pointer flex items-center gap-1.5"
+                    >
+                      <Navigation size={13} />
+                      <span>Start Route Navigation</span>
+                    </button>
+                  )}
+                  {activeJob.status === 'EN_ROUTE' && (
+                    <button
+                      onClick={() => handleTransitionStatus('ARRIVED')}
+                      className="px-5 py-2 rounded-full bg-emerald-400 text-slate-950 text-xs font-black hover:bg-emerald-300 shadow-md cursor-pointer flex items-center gap-1.5"
+                    >
+                      <MapPin size={13} />
+                      <span>Arrived at Customer Gate</span>
+                    </button>
+                  )}
+                  {activeJob.status === 'ARRIVED' && (
+                    <button
+                      onClick={() => setShowScanner(true)}
+                      className="px-5 py-2 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 text-xs font-black shadow-md cursor-pointer flex items-center gap-1.5 animate-pulse"
+                    >
+                      <QrCode size={13} />
+                      <span>Scan Customer Delivery QR</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="absolute right-4 sm:right-6 bottom-4 sm:bottom-6 z-10 text-right pointer-events-none hidden sm:block">
+              <span className="text-sm font-serif italic text-cyan-100/90 font-bold block drop-shadow-md">
+                Every Drop Counts ♡
+              </span>
+              <span className="text-xs text-cyan-200/80 font-mono">
+                Driver Santosh J.
+              </span>
+            </div>
+          </div>
+
+          {/* 4 DRIVER METRICS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+                <Truck size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Trips Today</span>
+                <span className="text-sm font-black text-slate-900 block">4 Completed</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-cyan-700">40,000 Litres</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <DollarSign size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Today's Earnings</span>
+                <span className="text-sm font-black text-slate-900 block">₹2,450</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-emerald-700">12% Incentive Active</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                <Award size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Driver Rating</span>
+                <span className="text-sm font-black text-slate-900 block">4.9 ★</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-slate-500">128 Citizen Reviews</div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-3.5 border border-sky-100/90 shadow-2xs space-y-2">
+              <div className="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center">
+                <ShieldCheck size={17} />
+              </div>
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 block">Source Audit</span>
+                <span className="text-sm font-black text-slate-900 block">PMC Verified</span>
+              </div>
+              <div className="text-[10px] font-extrabold text-teal-700">Parvati Reservoir</div>
+            </div>
+          </div>
+
+          {/* DRIVER TRIP ROUTE MAP */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Navigation size={18} className="text-cyan-700" />
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  Active Turn-by-Turn Route
+                </h3>
+              </div>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
+                Speed: 28 km/h • GPS Steady
+              </span>
+            </div>
+
+            <div className="rounded-2xl overflow-hidden border border-slate-200">
               <LeafletMap
-                center={[activeJob.lat, activeJob.lng]}
-                zoom={14}
-                className="h-60 sm:h-80 w-full rounded-2xl overflow-hidden border border-slate-200"
+                center={[18.535, 73.805]}
+                zoom={13}
+                className="h-72 w-full"
                 markers={[
                   {
-                    id: 'tanker',
-                    lat: activeJob.currentLat || 18.54,
-                    lng: activeJob.currentLng || 73.79,
+                    id: 'drv-truck',
+                    lat: activeJob?.currentLat || 18.535,
+                    lng: activeJob?.currentLng || 73.805,
                     title: 'My Tanker (MH-12 AB 4821)',
                     type: 'truck',
-                    subLabel: 'MH-12 AB 4821',
-                    etaMin: activeJob.etaMin,
+                    etaMin: activeJob?.etaMin || 22,
                   },
                   {
                     id: 'dest',
-                    lat: activeJob.lat,
-                    lng: activeJob.lng,
-                    title: activeJob.address.label,
+                    lat: activeJob?.lat || 18.552,
+                    lng: activeJob?.lng || 73.788,
+                    title: 'Baner Sector 9 Delivery',
                     type: 'delivery',
                   },
                 ]}
                 routePolyline={[
                   [18.4985, 73.8475],
                   [18.515, 73.825],
-                  [activeJob.currentLat || 18.54, activeJob.currentLng || 73.79],
-                  [activeJob.lat, activeJob.lng],
+                  [18.535, 73.805],
+                  [18.552, 73.788],
                 ]}
               />
-
-              {/* Trip Progression Buttons */}
-              <div className="space-y-3 pt-2">
-                <div className="text-xs font-bold text-slate-700">Trip Progression Controls:</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {activeJob.status === 'ACCEPTED' && (
-                    <button
-                      onClick={() => handleTransitionStatus('FILLING')}
-                      className="py-3 px-4 bg-cyan-600 hover:bg-cyan-700 text-white font-extrabold rounded-2xl text-xs cursor-pointer shadow-xs col-span-2"
-                    >
-                      Start Filling at Source (PMC Parvati Station)
-                    </button>
-                  )}
-
-                  {activeJob.status === 'FILLING' && (
-                    <button
-                      onClick={() => handleTransitionStatus('EN_ROUTE')}
-                      className="py-3 px-4 bg-cyan-600 hover:bg-cyan-700 text-white font-extrabold rounded-2xl text-xs cursor-pointer shadow-xs col-span-2"
-                    >
-                      Filled (10,000 L) • Depart En Route to Delivery
-                    </button>
-                  )}
-
-                  {activeJob.status === 'EN_ROUTE' && (
-                    <button
-                      onClick={() => handleTransitionStatus('ARRIVED')}
-                      className="py-3 px-4 bg-gradient-to-r from-cyan-600 to-teal-600 text-white font-extrabold rounded-2xl text-xs cursor-pointer shadow-md col-span-2"
-                    >
-                      Arrived at Customer Delivery Gate
-                    </button>
-                  )}
-
-                  {activeJob.status === 'ARRIVED' && (
-                    <button
-                      onClick={() => setShowScanner(true)}
-                      className="py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg animate-pulse cursor-pointer col-span-2"
-                    >
-                      <QrCode size={18} />
-                      <span>Scan Customer Dynamic Delivery QR (Proof of Delivery)</span>
-                    </button>
-                  )}
-                </div>
-              </div>
             </div>
-          ) : (
-            <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-sm space-y-3">
-              <Truck size={48} className="text-slate-300 mx-auto" />
-              <h3 className="text-lg font-black text-slate-800">No Active Trip Assigned</h3>
-              <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                You are online in Zone 2. New 10,000 L customer and society tanker bookings will appear in your offers queue.
-              </p>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Right Column (5/12): Source Check-in & Trip Offers */}
-        <div className="lg:col-span-5 space-y-6">
-          {/* Daily Source Check-in Card */}
-          {!todayCheckIn ? (
-            <div className="bg-white rounded-3xl p-6 border border-amber-300 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 text-amber-800 font-black text-sm">
-                <AlertTriangle size={18} className="text-amber-600" />
-                <span>{t('source_checkin_title')}</span>
+        {/* Right Column (5/12): Source Check-In Card + QR PoD Trigger + Quick Controls */}
+        <div className="lg:col-span-5 space-y-5">
+          {/* 1. DAILY SOURCE CHECK-IN CARD (PMC MANDATORY AUDIT) */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={18} className="text-cyan-700" />
+                <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                  Daily Source Check-In (PMC Audit)
+                </h3>
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">{t('source_checkin_desc')}</p>
-
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    Select Certified Water Source
-                  </label>
-                  <select
-                    value={selectedSourceId}
-                    onChange={(e) => setSelectedSourceId(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs"
-                  >
-                    {sources.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="font-bold text-slate-700 block mb-1">
-                    Batch / Certificate Number
-                  </label>
-                  <input
-                    type="text"
-                    value={certInput}
-                    onChange={(e) => setCertInput(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold"
-                  />
-                </div>
-
-                <div className="bg-slate-50 p-3 rounded-xl text-xs text-slate-600 flex items-center justify-between border border-slate-200">
-                  <span className="flex items-center gap-1.5">
-                    <MapPin size={13} className="text-cyan-600" />
-                    <span>GPS Location: Parvati Station</span>
-                  </span>
-                  <span className="text-emerald-700 font-extrabold">Within 45m</span>
-                </div>
-
-                {checkInError && (
-                  <div className="p-3 rounded-xl bg-rose-50 text-rose-800 text-xs border border-rose-200 font-medium">
-                    {checkInError}
-                  </div>
-                )}
-
-                <button
-                  onClick={handleCheckInSubmit}
-                  disabled={checkInLoading}
-                  className="w-full py-3 bg-gradient-to-r from-cyan-600 to-teal-600 hover:brightness-105 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs disabled:opacity-50"
-                >
-                  {checkInLoading ? 'Verifying Source & Geotag...' : 'Complete Source Audit & Go Online'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-emerald-50 rounded-3xl p-5 border border-emerald-200 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-3">
-                <CheckCircle2 size={22} className="text-emerald-600 shrink-0" />
-                <div>
-                  <div className="font-black text-sm text-emerald-950">
-                    {t('source_verified_badge')}
-                  </div>
-                  <div className="text-xs text-emerald-700 mt-0.5">
-                    PMC Parvati Filling Station • Cert: {todayCheckIn.certificateNo}
-                  </div>
-                </div>
-              </div>
-              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">
-                Active Audit
-              </span>
-            </div>
-          )}
-
-          {/* Incoming Job Offer Card with 90s Timer */}
-          {jobOffer && (
-            <div className="bg-white rounded-3xl p-6 border border-cyan-300 shadow-xl space-y-4 animate-in zoom-in-95">
-              <div className="flex items-center justify-between">
-                <span className="text-xs uppercase font-black text-cyan-800 bg-cyan-100 px-3 py-1 rounded-full">
-                  Incoming Job Offer
+              {todayCheckIn ? (
+                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                  Verified Today
                 </span>
-                <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
-                  <Clock size={14} />
-                  <span>{offerCountdown}s remaining</span>
+              ) : (
+                <span className="text-xs font-bold text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full">
+                  Action Required
                 </span>
+              )}
+            </div>
+
+            <p className="text-xs text-slate-500">
+              Tankers must check-in within 500m of a licensed PMC municipal station to unlock order dispatch.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                  Water Filling Station
+                </label>
+                <select
+                  value={selectedSourceId}
+                  onChange={(e) => setSelectedSourceId(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold bg-white"
+                >
+                  {sources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} • Cert: {s.certificateNo}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div className="flex justify-between items-baseline">
-                <div>
-                  <div className="text-lg font-black text-slate-900">
-                    {jobOffer.volumeL.toLocaleString('en-IN')} L Water Tanker
-                  </div>
-                  <div className="text-xs text-slate-500 mt-0.5">
-                    Delivery Address: {jobOffer.address.label}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-base font-black text-emerald-700">
-                    +{formatINR(Math.round(jobOffer.price.total * 0.12))}
-                  </div>
-                  <div className="text-[10px] text-slate-400">12% Driver Incentive</div>
-                </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">
+                  Filling Certificate No.
+                </label>
+                <input
+                  type="text"
+                  value={certInput}
+                  onChange={(e) => setCertInput(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold"
+                />
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => mockApi.cancelBooking(jobOffer.id, 'Driver declined offer')}
-                  className="flex-1 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs cursor-pointer"
-                >
-                  Decline
-                </button>
-                <button
-                  onClick={() => handleTransitionStatus('ACCEPTED')}
-                  className="flex-1 py-2.5 bg-gradient-to-r from-cyan-600 to-teal-600 text-white font-black rounded-xl text-xs shadow-md cursor-pointer"
-                >
-                  Accept Offer
-                </button>
+              <button
+                onClick={handleCheckInSubmit}
+                disabled={checkInLoading}
+                className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-extrabold text-xs shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                {checkInLoading ? 'Verifying PMC Geofence...' : 'Submit Station Check-In'}
+              </button>
+            </div>
+          </div>
+
+          {/* 2. CUSTOMER POD SCANNER TRIGGER CARD */}
+          <div className="rounded-3xl bg-gradient-to-r from-sky-100/90 via-cyan-100/80 to-teal-100/90 p-5 border border-sky-200/80 shadow-2xs space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-600 text-white flex items-center justify-center font-black shrink-0 shadow-md">
+                <QrCode size={24} />
+              </div>
+              <div>
+                <h4 className="text-sm font-black text-cyan-950">
+                  Customer PoD Verification Scanner
+                </h4>
+                <p className="text-[11px] text-cyan-800">
+                  Scan customer's dynamic 30-sec QR to release escrow payment instantly.
+                </p>
               </div>
             </div>
-          )}
+
+            <button
+              onClick={() => setShowScanner(true)}
+              className="w-full py-2.5 rounded-2xl bg-[#0a5265] hover:bg-[#073b49] text-white text-xs font-black shadow-xs cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Camera size={14} />
+              <span>Launch Verification Camera</span>
+            </button>
+          </div>
+
+          {/* 3. DRIVER QUICK ACTIONS */}
+          <div className="bg-white rounded-3xl p-5 border border-sky-100/90 shadow-2xs space-y-3">
+            <h4 className="text-xs font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+              <Sparkles size={14} className="text-cyan-700" />
+              <span>Driver Controls</span>
+            </h4>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  if (driver) {
+                    db.update((d) => {
+                      const drv = d.drivers.find((item) => item.id === driver.id);
+                      if (drv) drv.online = !drv.online;
+                    });
+                    refreshData();
+                  }
+                }}
+                className={`p-3 rounded-2xl border text-center transition-colors cursor-pointer ${
+                  driver?.online
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border-rose-200 text-rose-800'
+                }`}
+              >
+                <span className="text-xs font-extrabold block">
+                  {driver?.online ? 'Online (Ready)' : 'Go Online'}
+                </span>
+                <span className="text-[10px] text-slate-500">Toggle Dispatch</span>
+              </button>
+
+              <button
+                onClick={() => alert('Support helpline: +91 20 2550 1000 (PMC Water Control Desk)')}
+                className="p-3 rounded-2xl bg-slate-50 border border-slate-200 text-center hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <span className="text-xs font-extrabold block text-slate-800">PMC Helpline</span>
+                <span className="text-[10px] text-slate-500">Emergency Support</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* --- CAMERA SCANNER & POD MODAL --- */}
-      {showScanner && activeJob && (
-        <div className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="w-full max-w-md bg-white rounded-3xl p-6 space-y-4 shadow-2xl overflow-y-auto max-h-[90vh]">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2 font-black text-sm text-slate-900">
-                <Camera size={18} className="text-cyan-600" />
-                <span>{t('driver_scan_qr')}</span>
+      {/* SCANNER MODAL */}
+      {showScanner && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-sky-100 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-black text-slate-900 text-sm">
+                <Camera className="w-5 h-5 text-cyan-600" />
+                <span>Scan Customer Delivery QR</span>
               </div>
-              <button onClick={() => setShowScanner(false)} className="text-slate-400 cursor-pointer">
+              <button
+                onClick={() => setShowScanner(false)}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Simulated Camera Viewfinder */}
-            <div className="h-48 bg-slate-900 rounded-2xl relative overflow-hidden flex flex-col items-center justify-center text-white border-2 border-dashed border-cyan-400">
-              <div className="w-32 h-32 border-2 border-cyan-400 rounded-2xl animate-pulse flex items-center justify-center">
-                <QrCode size={48} className="text-cyan-300 opacity-60" />
+            <p className="text-xs text-slate-500">
+              Align camera with customer's 30-second dynamic QR code on their screen to unlock instant escrow release.
+            </p>
+
+            <div className="relative h-48 rounded-2xl bg-slate-900 flex items-center justify-center overflow-hidden border border-slate-800">
+              <div className="w-36 h-36 border-2 border-cyan-400 rounded-2xl relative flex items-center justify-center animate-pulse">
+                <QrCode size={48} className="text-cyan-400/50" />
               </div>
-              <span className="text-xs text-cyan-200 mt-2">Align customer dynamic QR in frame</span>
             </div>
 
-            {/* Delivered Litres Input */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-slate-700 block">
-                {t('confirm_quantity')} (Litres)
-              </label>
-              <input
-                type="number"
-                value={deliveredLitres}
-                onChange={(e) => setDeliveredLitres(Number(e.target.value))}
-                className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold"
-              />
-              <span className="text-[11px] text-slate-400 block">
-                If delivered &lt; 95% of ordered, difference is automatically refunded to customer wallet.
-              </span>
-            </div>
-
-            {/* Quick Demo Scan Buttons */}
-            <div className="space-y-2">
-              <button
-                onClick={handleAutoReadLiveQr}
-                disabled={isVerifying}
-                className="w-full py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-              >
-                <span>{t('scan_demo_qr')}</span>
-              </button>
-
-              <button
-                onClick={() => setSimulateGpsDrift(!simulateGpsDrift)}
-                className={`w-full py-2 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
-                  simulateGpsDrift
-                    ? 'bg-rose-50 border-rose-300 text-rose-800'
-                    : 'bg-slate-50 border-slate-200 text-slate-600'
-                }`}
-              >
-                {simulateGpsDrift ? '⚠️ GPS Drift Active (1.85 km away)' : t('simulate_gps_drift')}
-              </button>
-            </div>
-
-            {/* Verification Checklist Output */}
-            {verifyResult && (
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 text-xs space-y-2">
-                <div className="font-bold text-slate-900 text-xs mb-1">5-Point Security Checklist:</div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span>1. Cryptographic Signature (SHA-256)</span>
-                  {verifyResult.signatureValid ? (
-                    <span className="text-emerald-700 font-bold flex items-center gap-0.5">
-                      <Check size={13} /> Pass
-                    </span>
-                  ) : (
-                    <span className="text-rose-700 font-bold flex items-center gap-0.5">
-                      <X size={13} /> Fail
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span>2. Freshness (&lt; 60s)</span>
-                  {verifyResult.freshnessValid ? (
-                    <span className="text-emerald-700 font-bold flex items-center gap-0.5">
-                      <Check size={13} /> Pass
-                    </span>
-                  ) : (
-                    <span className="text-rose-700 font-bold flex items-center gap-0.5">
-                      <X size={13} /> Fail
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span>3. Booking Status is ARRIVED</span>
-                  {verifyResult.statusValid ? (
-                    <span className="text-emerald-700 font-bold flex items-center gap-0.5">
-                      <Check size={13} /> Pass
-                    </span>
-                  ) : (
-                    <span className="text-rose-700 font-bold flex items-center gap-0.5">
-                      <X size={13} /> Fail
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span>4. One-Time Nonce Unused</span>
-                  {verifyResult.nonceUnused ? (
-                    <span className="text-emerald-700 font-bold flex items-center gap-0.5">
-                      <Check size={13} /> Pass
-                    </span>
-                  ) : (
-                    <span className="text-rose-700 font-bold flex items-center gap-0.5">
-                      <X size={13} /> Replay
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span>5. GPS Geofence (Within 150m)</span>
-                  {verifyResult.geofenceValid ? (
-                    <span className="text-emerald-700 font-bold flex items-center gap-0.5">
-                      <Check size={13} /> {verifyResult.distanceM}m
-                    </span>
-                  ) : (
-                    <span className="text-rose-700 font-bold flex items-center gap-0.5">
-                      <X size={13} /> {verifyResult.distanceM}m
-                    </span>
-                  )}
-                </div>
-
-                {verifyResult.allPassed ? (
-                  <div className="mt-2 p-2.5 bg-emerald-100 text-emerald-900 rounded-xl font-bold text-center">
-                    🎉 PoD Verified! Escrow Released. Payouts credited!
-                  </div>
-                ) : (
-                  <div className="mt-2 p-2.5 bg-rose-100 text-rose-900 rounded-xl font-bold text-center">
-                    ❌ Verification Rejected: {verifyResult.failureReason}
-                  </div>
-                )}
-              </div>
-            )}
+            <button
+              onClick={handleScanSubmit}
+              disabled={isVerifying}
+              className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs shadow-md cursor-pointer disabled:opacity-50"
+            >
+              {isVerifying ? 'Verifying Escrow Cryptography...' : 'Simulate Successful QR Scan & Deliver'}
+            </button>
           </div>
         </div>
       )}
